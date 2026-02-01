@@ -1,12 +1,12 @@
 const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 
-let isConnected = false;
+let cachedConnection = null;
 
 const connectDB = async () => {
-  // Skip if already connected (for serverless warm starts)
-  if (isConnected && mongoose.connection.readyState === 1) {
-    return;
+  // Return cached connection for serverless warm starts
+  if (cachedConnection && mongoose.connection.readyState === 1) {
+    return cachedConnection;
   }
 
   try {
@@ -14,36 +14,33 @@ const connectDB = async () => {
     
     if (!mongoUri) {
       console.error('MONGODB_URI environment variable is not set');
-      // Don't exit in serverless - just log the error
       if (process.env.VERCEL !== '1') {
         process.exit(1);
       }
-      return;
+      throw new Error('MONGODB_URI is not configured');
     }
 
-    const conn = await mongoose.connect(mongoUri, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      bufferCommands: false, // Disable buffering for serverless
-    });
+    // Connection options optimized for serverless
+    const options = {
+      maxPoolSize: 10,
+      serverSelectionTimeoutMS: 5000,
+      socketTimeoutMS: 45000,
+    };
 
-    isConnected = true;
+    const conn = await mongoose.connect(mongoUri, options);
+    cachedConnection = conn;
+    
     logger.info(`MongoDB Connected: ${conn.connection.host}`);
     
     // Handle connection events
     mongoose.connection.on('error', (err) => {
       logger.error(`MongoDB connection error: ${err}`);
-      isConnected = false;
+      cachedConnection = null;
     });
 
     mongoose.connection.on('disconnected', () => {
       logger.warn('MongoDB disconnected');
-      isConnected = false;
-    });
-
-    mongoose.connection.on('reconnected', () => {
-      logger.info('MongoDB reconnected');
-      isConnected = true;
+      cachedConnection = null;
     });
 
     // Graceful shutdown (skip in serverless)
@@ -55,13 +52,15 @@ const connectDB = async () => {
       });
     }
 
+    return conn;
+
   } catch (error) {
     logger.error(`Error connecting to MongoDB: ${error.message}`);
-    isConnected = false;
-    // Don't exit in serverless
+    cachedConnection = null;
     if (process.env.VERCEL !== '1') {
       process.exit(1);
     }
+    throw error;
   }
 };
 
