@@ -5,21 +5,10 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
-const connectDB = require('./config/database');
 const logger = require('./utils/logger');
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
 
 const app = express();
-
-// Database connection middleware for serverless
-app.use(async (req, res, next) => {
-  try {
-    await connectDB();
-    next();
-  } catch (error) {
-    res.status(500).json({ success: false, message: 'Database connection failed' });
-  }
-});
 
 // Security Middleware
 app.use(helmet());
