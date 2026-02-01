@@ -3,6 +3,10 @@ process.env.VERCEL = '1';
 
 const mongoose = require('mongoose');
 
+// Set mongoose global options FIRST
+mongoose.set('bufferCommands', true);
+mongoose.set('strictQuery', false);
+
 // Cached connection and app
 let cachedDb = null;
 let cachedApp = null;
