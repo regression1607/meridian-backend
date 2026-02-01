@@ -3,8 +3,9 @@ process.env.VERCEL = '1';
 
 const mongoose = require('mongoose');
 
-// Cached connection for serverless
+// Cached connection and app
 let cachedDb = null;
+let cachedApp = null;
 
 async function connectToDatabase() {
   if (cachedDb && mongoose.connection.readyState === 1) {
@@ -18,13 +19,30 @@ async function connectToDatabase() {
   });
   
   cachedDb = conn;
+  console.log('MongoDB connected in serverless');
   return conn;
 }
 
-// Handler wrapper that ensures DB connection
-const app = require('../src/server');
+async function getApp() {
+  // Connect to DB first, BEFORE loading server/models
+  await connectToDatabase();
+  
+  if (!cachedApp) {
+    // Only require server AFTER DB is connected
+    cachedApp = require('../src/server');
+  }
+  return cachedApp;
+}
 
 module.exports = async (req, res) => {
-  await connectToDatabase();
-  return app(req, res);
+  try {
+    const app = await getApp();
+    return app(req, res);
+  } catch (error) {
+    console.error('Serverless handler error:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: error.message 
+    });
+  }
 };
