@@ -132,11 +132,12 @@ app.use(`${apiPrefix}/question-papers`, require('./routes/questionPaper.routes')
 app.use(notFound);
 app.use(errorHandler);
 
-// Start Server
+// Start Server (only in non-Vercel environment)
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  logger.info(`
+if (process.env.VERCEL !== '1') {
+  app.listen(PORT, () => {
+    logger.info(`
   ╔═══════════════════════════════════════════════════════════╗
   ║                                                           ║
   ║   🎓 MERIDIAN EMS - Education Management System          ║
@@ -146,7 +147,9 @@ app.listen(PORT, () => {
   ║   API: http://localhost:${PORT}${apiPrefix}                    ║
   ║                                                           ║
   ╚═══════════════════════════════════════════════════════════╝
-  `);
-});
+    `);
+  });
+}
 
+// Export for Vercel serverless
 module.exports = app;
