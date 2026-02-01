@@ -22,8 +22,8 @@ const logger = winston.createLogger({
   ]
 });
 
-// Add file transport in production
-if (process.env.NODE_ENV === 'production') {
+// Add file transport in production (skip on Vercel - no filesystem)
+if (process.env.NODE_ENV === 'production' && process.env.VERCEL !== '1') {
   logger.add(new winston.transports.File({
     filename: path.join('logs', 'error.log'),
     level: 'error'
