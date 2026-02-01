@@ -25,6 +25,7 @@ const connectDB = async () => {
       maxPoolSize: 10,
       serverSelectionTimeoutMS: 5000,
       socketTimeoutMS: 45000,
+      bufferCommands: true, // Enable command buffering
     };
 
     const conn = await mongoose.connect(mongoUri, options);
