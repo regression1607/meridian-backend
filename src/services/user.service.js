@@ -28,7 +28,13 @@ class UserService {
 
     const sortOrder = order === 'asc' ? 1 : -1;
 
-    const [users, total] = await Promise.all([
+    // Base query for stats (without pagination filters like search)
+    const statsQuery = { isActive: true };
+    if (institutionId) {
+      statsQuery.institution = institutionId;
+    }
+
+    const [users, total, studentCount, teacherCount, parentCount, staffCount] = await Promise.all([
       User.find(query)
         .select('-password -__v -refreshToken')
         .populate('institution', 'name code')
@@ -36,7 +42,11 @@ class UserService {
         .skip(skip)
         .limit(parseInt(limit))
         .lean(),
-      User.countDocuments(query)
+      User.countDocuments(query),
+      User.countDocuments({ ...statsQuery, role: 'student' }),
+      User.countDocuments({ ...statsQuery, role: 'teacher' }),
+      User.countDocuments({ ...statsQuery, role: 'parent' }),
+      User.countDocuments({ ...statsQuery, role: 'staff' })
     ]);
 
     return {
@@ -46,6 +56,13 @@ class UserService {
         limit: parseInt(limit),
         total,
         totalPages: Math.ceil(total / limit)
+      },
+      stats: {
+        total: studentCount + teacherCount + parentCount + staffCount,
+        students: studentCount,
+        teachers: teacherCount,
+        parents: parentCount,
+        staff: staffCount
       }
     };
   }
@@ -172,8 +189,16 @@ class UserService {
       throw ApiError.notFound('User not found');
     }
 
-    // Don't allow email change through this endpoint
-    delete updateData.email;
+    // Handle email change - check for duplicates
+    if (updateData.email && updateData.email !== user.email) {
+      const existingUser = await User.findOne({ email: updateData.email, _id: { $ne: id } });
+      if (existingUser) {
+        throw ApiError.conflict('Email already in use by another user');
+      }
+      user.email = updateData.email;
+    }
+    
+    // Don't allow password change through this endpoint
     delete updateData.password;
 
     // Handle profile updates

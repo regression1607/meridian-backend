@@ -23,8 +23,38 @@ class ClassService {
       Class.countDocuments(query)
     ]);
 
+    // Get student counts for each class
+    const classIds = classes.map(c => c._id);
+    const studentCounts = await User.aggregate([
+      {
+        $match: {
+          'studentData.class': { $in: classIds },
+          isActive: true,
+          role: 'student'
+        }
+      },
+      {
+        $group: {
+          _id: '$studentData.class',
+          count: { $sum: 1 }
+        }
+      }
+    ]);
+
+    // Create a map for quick lookup
+    const countMap = {};
+    studentCounts.forEach(item => {
+      countMap[item._id.toString()] = item.count;
+    });
+
+    // Add studentCount to each class
+    const classesWithCounts = classes.map(c => ({
+      ...c,
+      studentCount: countMap[c._id.toString()] || 0
+    }));
+
     return {
-      data: classes,
+      data: classesWithCounts,
       meta: {
         page: parseInt(page),
         limit: parseInt(limit),

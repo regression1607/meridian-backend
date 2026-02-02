@@ -14,9 +14,13 @@ exports.getUsers = asyncHandler(async (req, res) => {
     institutionId,
     req.user.role
   );
-  res.json(
-    ApiResponse.paginated('Users fetched successfully', result.data, result.meta)
-  );
+  res.json({
+    success: true,
+    message: 'Users fetched successfully',
+    data: result.data,
+    meta: result.meta,
+    stats: result.stats
+  });
 });
 
 exports.getUserById = asyncHandler(async (req, res) => {
