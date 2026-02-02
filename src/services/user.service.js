@@ -312,6 +312,90 @@ class UserService {
 
     return userObj;
   }
+
+  async bulkImportUsers(usersData, institutionId, createdBy, creatorRole) {
+    const results = {
+      successful: [],
+      failed: [],
+      total: usersData.length
+    };
+
+    for (const userData of usersData) {
+      try {
+        // Check if email already exists
+        const existingUser = await User.findOne({ email: userData.email });
+        if (existingUser) {
+          results.failed.push({
+            email: userData.email,
+            error: 'Email already exists'
+          });
+          continue;
+        }
+
+        // Generate password
+        const password = generatePassword();
+
+        // Build user object
+        const newUser = {
+          email: userData.email,
+          password,
+          role: userData.role,
+          institution: institutionId,
+          profile: userData.profile,
+          createdBy,
+          isActive: true,
+          isEmailVerified: false,
+          mustChangePassword: true
+        };
+
+        // Add role-specific data
+        if (userData.role === 'student' && userData.studentData) {
+          newUser.studentData = userData.studentData;
+        }
+        if (userData.role === 'teacher' && userData.teacherData) {
+          newUser.teacherData = userData.teacherData;
+        }
+        if (userData.role === 'parent' && userData.parentData) {
+          newUser.parentData = userData.parentData;
+        }
+        if (userData.role === 'staff' && userData.staffData) {
+          newUser.staffData = userData.staffData;
+        }
+
+        const user = await User.create(newUser);
+        results.successful.push({
+          email: user.email,
+          name: `${user.profile.firstName} ${user.profile.lastName}`,
+          temporaryPassword: password
+        });
+      } catch (error) {
+        results.failed.push({
+          email: userData.email,
+          error: error.message
+        });
+      }
+    }
+
+    return results;
+  }
+
+  async exportUsers(filters, institutionId) {
+    const query = { isActive: true };
+    
+    if (institutionId) {
+      query.institution = institutionId;
+    }
+    
+    if (filters.role && filters.role !== 'all') {
+      query.role = filters.role;
+    }
+
+    const users = await User.find(query)
+      .select('-password -__v -refreshToken -passwordResetToken -passwordResetExpires')
+      .lean();
+
+    return users;
+  }
 }
 
 module.exports = new UserService();

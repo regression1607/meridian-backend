@@ -16,6 +16,17 @@ router.put('/me', userController.updateProfile);
 // Get users by role
 router.get('/role/:role', authorizeMinRole('teacher'), userController.getUsersByRole);
 
+// Bulk import/export routes
+router.post('/bulk-import',
+  authorize(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.INSTITUTION_ADMIN),
+  userController.bulkImportUsers
+);
+
+router.get('/export',
+  authorize(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.INSTITUTION_ADMIN),
+  userController.exportUsers
+);
+
 // Admin routes - super_admin, admin, and institution_admin can manage users
 router.route('/')
   .get(authorizeMinRole('teacher'), validate(userValidator.getUsers), userController.getUsers)

@@ -88,3 +88,48 @@ exports.updateProfile = asyncHandler(async (req, res) => {
     ApiResponse.success('Profile updated successfully', user)
   );
 });
+
+exports.bulkImportUsers = asyncHandler(async (req, res) => {
+  const { users, role } = req.body;
+  
+  if (!users || !Array.isArray(users) || users.length === 0) {
+    return res.status(400).json(
+      ApiResponse.error('No users data provided')
+    );
+  }
+
+  if (!role) {
+    return res.status(400).json(
+      ApiResponse.error('Role is required')
+    );
+  }
+
+  const institutionId = ['super_admin', 'admin'].includes(req.user.role)
+    ? req.body.institutionId || req.user.institution
+    : req.user.institution;
+
+  const result = await userService.bulkImportUsers(
+    users,
+    institutionId,
+    req.user._id,
+    req.user.role
+  );
+
+  res.status(201).json(
+    ApiResponse.success('Bulk import completed', result)
+  );
+});
+
+exports.exportUsers = asyncHandler(async (req, res) => {
+  const { role } = req.query;
+  
+  const institutionId = ['super_admin', 'admin'].includes(req.user.role)
+    ? null
+    : req.user.institution;
+
+  const users = await userService.exportUsers({ role }, institutionId);
+
+  res.json(
+    ApiResponse.success('Users exported successfully', users)
+  );
+});
