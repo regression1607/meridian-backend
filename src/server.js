@@ -5,10 +5,14 @@ const morgan = require('morgan');
 const rateLimit = require('express-rate-limit');
 require('dotenv').config();
 
+const connectDB = require('./config/database');
 const logger = require('./utils/logger');
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
 
 const app = express();
+
+// Connect to Database
+connectDB();
 
 // CORS - must be before other middleware
 // Allow all origins for now (can restrict later)
