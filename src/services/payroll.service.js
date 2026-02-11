@@ -60,12 +60,14 @@ class PayrollService {
   }
 
   async updateSalaryStructure(id, institutionId, data) {
-    const structure = await SalaryStructure.findOneAndUpdate(
-      { _id: id, institutionId },
-      { $set: data },
-      { new: true, runValidators: true }
-    );
+    const structure = await SalaryStructure.findOne({ _id: id, institutionId });
     if (!structure) throw new ApiError(404, 'Salary structure not found');
+    
+    // Update fields
+    Object.assign(structure, data);
+    
+    // Save to trigger pre-save hook that calculates grossSalary and netSalary
+    await structure.save();
     return structure;
   }
 
@@ -204,6 +206,44 @@ class PayrollService {
     const salary = await EmployeeSalary.findOne({ employee: employeeId, institutionId })
       .populate('salaryStructure');
     return salary;
+  }
+
+  async updateEmployeeSalary(id, institutionId, data) {
+    const salary = await EmployeeSalary.findOne({ _id: id, institutionId });
+    if (!salary) throw new ApiError(404, 'Employee salary not found');
+
+    const { salaryStructureId, ...rest } = data;
+    let updateData = { ...rest };
+
+    if (salaryStructureId) {
+      const structure = await SalaryStructure.findById(salaryStructureId);
+      if (!structure) throw new ApiError(404, 'Salary structure not found');
+      updateData.components = { ...structure.components, ...rest.components };
+      updateData.deductions = { ...structure.deductions, ...rest.deductions };
+      updateData.salaryStructure = salaryStructureId;
+    }
+
+    // Calculate totals
+    const comp = updateData.components || salary.components || {};
+    const ded = updateData.deductions || salary.deductions || {};
+    updateData.grossSalary = Object.values(comp).reduce((a, b) => a + (b || 0), 0);
+    updateData.netSalary = updateData.grossSalary - Object.values(ded).reduce((a, b) => a + (b || 0), 0);
+
+    Object.assign(salary, updateData);
+    await salary.save();
+    return salary;
+  }
+
+  async deleteEmployeeSalary(id, institutionId) {
+    // Check if there are payslips for this salary
+    const hasPayslips = await Payslip.findOne({ employeeSalary: id });
+    if (hasPayslips) {
+      throw new ApiError(400, 'Cannot delete - employee has payslips generated');
+    }
+
+    const result = await EmployeeSalary.findOneAndDelete({ _id: id, institutionId });
+    if (!result) throw new ApiError(404, 'Employee salary not found');
+    return result;
   }
 
   // ============ PAYSLIP METHODS ============
@@ -545,6 +585,7 @@ class PayrollService {
       const [
         totalEmployees,
         configuredSalaries,
+        monthlyBudget,
         currentMonthPayslips,
         pendingBonuses,
         activeAdvances,
@@ -556,6 +597,10 @@ class PayrollService {
           isActive: true
         }),
         EmployeeSalary.countDocuments({ institutionId: instId, status: 'active' }),
+        EmployeeSalary.aggregate([
+          { $match: { institutionId: instId, status: 'active' } },
+          { $group: { _id: null, total: { $sum: '$netSalary' } } }
+        ]),
         Payslip.aggregate([
           { $match: { institutionId: instId, month: currentMonth, year: currentYear } },
           { $group: { 
@@ -586,6 +631,7 @@ class PayrollService {
         totalEmployees,
         configuredSalaries,
         pendingConfiguration: totalEmployees - configuredSalaries,
+        monthlyBudget: monthlyBudget[0]?.total || 0,
         currentMonth: {
           generated: payslipStats.generated?.count || 0,
           approved: payslipStats.approved?.count || 0,

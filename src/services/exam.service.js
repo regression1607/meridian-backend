@@ -196,20 +196,49 @@ exports.createBulkResults = async (results, userId, institutionId) => {
   const exam = await Exam.findById(results[0]?.exam);
   if (!exam) throw ApiError.notFound('Exam not found');
 
-  const bulkResults = results.map(r => ({
-    ...r,
-    institution: institutionId,
-    enteredBy: userId,
-    totalMarks: exam.totalMarks,
-    class: exam.class,
-    section: exam.section,
-    subject: exam.subject,
-    term: exam.term,
-    academicYear: exam.academicYear,
-    status: r.marksObtained >= exam.passingMarks ? 'pass' : 'fail'
-  }));
+  // Helper function to calculate grade from percentage
+  const calculateGrade = (percentage) => {
+    if (percentage >= 90) return 'A+';
+    if (percentage >= 80) return 'A';
+    if (percentage >= 70) return 'B+';
+    if (percentage >= 60) return 'B';
+    if (percentage >= 50) return 'C+';
+    if (percentage >= 40) return 'C';
+    if (percentage >= 33) return 'D';
+    if (percentage >= 25) return 'E';
+    return 'F';
+  };
 
-  return Result.insertMany(bulkResults, { ordered: false });
+  // Use bulkWrite with upsert to update existing results or create new ones
+  const bulkOps = results.map(r => {
+    const percentage = exam.totalMarks > 0 ? Math.round((r.marksObtained / exam.totalMarks) * 100 * 100) / 100 : 0;
+    const grade = calculateGrade(percentage);
+    
+    return {
+      updateOne: {
+        filter: { exam: r.exam, student: r.student },
+        update: {
+          $set: {
+            marksObtained: r.marksObtained,
+            totalMarks: exam.totalMarks,
+            percentage,
+            grade,
+            institution: institutionId,
+            enteredBy: userId,
+            class: exam.class,
+            section: exam.section,
+            subject: exam.subject,
+            term: exam.term,
+            academicYear: exam.academicYear,
+            status: r.marksObtained >= exam.passingMarks ? 'pass' : 'fail'
+          }
+        },
+        upsert: true
+      }
+    };
+  });
+
+  return Result.bulkWrite(bulkOps, { ordered: false });
 };
 
 exports.updateResult = async (id, data, institutionId) => {

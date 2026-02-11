@@ -1,6 +1,16 @@
 const User = require('../models/User');
+const Institution = require('../models/Institution');
+const Class = require('../models/Class');
+const Section = require('../models/Section');
+const { FeePayment } = require('../models/Fee');
+const { TransportAllocation } = require('../models/Transport');
+const { RoomAllocation } = require('../models/Hostel');
+const { BookIssue } = require('../models/Library');
+const { EmployeeSalary, Payslip, Bonus, Advance } = require('../models/Payroll');
+const Attendance = require('../models/Attendance');
 const ApiError = require('../utils/apiError');
 const { generatePassword } = require('../utils/helpers');
+const emailService = require('../utils/emailService');
 
 class UserService {
   async getUsers(filters, options, institutionId, userRole) {
@@ -16,7 +26,14 @@ class UserService {
     }
 
     // Apply filters
-    if (filters.role) query.role = filters.role;
+    if (filters.role) {
+      // Support comma-separated roles for filtering multiple roles
+      if (filters.role.includes(',')) {
+        query.role = { $in: filters.role.split(',').map(r => r.trim()) };
+      } else {
+        query.role = filters.role;
+      }
+    }
     if (filters.isActive !== undefined) query.isActive = filters.isActive;
     if (filters.search) {
       query.$or = [
@@ -81,6 +98,129 @@ class UserService {
     }
 
     return user;
+  }
+
+  async getUserFullDetails(id, institutionId) {
+    const query = { _id: id };
+    if (institutionId) {
+      query.institution = institutionId;
+    }
+    
+    const user = await User.findOne(query)
+      .select('-password -__v -refreshToken')
+      .populate('institution', 'name code')
+      .populate({ path: 'studentData.class', select: 'name' })
+      .populate({ path: 'studentData.section', select: 'name' })
+      .populate({ path: 'studentData.parent', select: 'profile.firstName profile.lastName email' })
+      .populate({ path: 'parentData.children', select: 'profile.firstName profile.lastName email studentData' })
+      .lean();
+
+    if (!user) {
+      throw ApiError.notFound('User not found');
+    }
+
+    // Manually populate class and section if they're ObjectIds
+    if (user.role === 'student' && user.studentData) {
+      if (user.studentData.class && typeof user.studentData.class !== 'object') {
+        const classDoc = await Class.findById(user.studentData.class).select('name').lean();
+        if (classDoc) user.studentData.class = classDoc;
+      }
+      if (user.studentData.section && typeof user.studentData.section !== 'object') {
+        const sectionDoc = await Section.findById(user.studentData.section).select('name').lean();
+        if (sectionDoc) user.studentData.section = sectionDoc;
+      }
+    }
+
+    const details = { user };
+
+    // For students - fetch fees, transport, hostel, library, attendance
+    if (user.role === 'student') {
+      const mongoose = require('mongoose');
+      const userId = new mongoose.Types.ObjectId(id);
+      
+      const [feePayments, transportAllocation, hostelAllocation, libraryBooks, attendance] = await Promise.all([
+        FeePayment.find({ student: userId })
+          .populate('feeStructure', 'name amount')
+          .sort({ createdAt: -1 })
+          .limit(20)
+          .lean(),
+        TransportAllocation.findOne({ student: userId, status: 'active', isDeleted: { $ne: true } })
+          .populate('route', 'name startPoint endPoint routeCode')
+          .lean(),
+        RoomAllocation.findOne({ student: userId, status: 'active' })
+          .populate({ path: 'room', select: 'roomNumber block', populate: { path: 'block', select: 'name' } })
+          .lean(),
+        BookIssue.find({ user: userId })
+          .populate('book', 'title author isbn')
+          .sort({ issueDate: -1 })
+          .limit(10)
+          .lean(),
+        Attendance.find({ user: userId })
+          .sort({ date: -1 })
+          .limit(30)
+          .lean()
+      ]);
+
+      details.fees = {
+        payments: feePayments,
+        totalPaid: feePayments.filter(p => p.status === 'paid').reduce((sum, p) => sum + (p.amount || 0), 0),
+        totalPending: feePayments.filter(p => p.status === 'pending').reduce((sum, p) => sum + (p.amount || 0), 0)
+      };
+      details.transport = transportAllocation;
+      details.hostel = hostelAllocation;
+      details.library = {
+        books: libraryBooks,
+        currentlyIssued: libraryBooks.filter(b => b.status === 'issued').length,
+        totalFines: libraryBooks.reduce((sum, b) => sum + (b.fineAmount || 0), 0)
+      };
+      details.attendance = {
+        recent: attendance,
+        presentDays: attendance.filter(a => a.status === 'present').length,
+        totalDays: attendance.length
+      };
+    }
+
+    // For teachers/staff - fetch salary, payslips, bonuses, advances
+    if (['teacher', 'staff', 'coordinator'].includes(user.role)) {
+      const [salary, payslips, bonuses, advances] = await Promise.all([
+        EmployeeSalary.findOne({ employee: id })
+          .populate('salaryStructure', 'name')
+          .lean(),
+        Payslip.find({ employee: id })
+          .sort({ createdAt: -1 })
+          .limit(12)
+          .lean(),
+        Bonus.find({ employee: id })
+          .sort({ createdAt: -1 })
+          .limit(10)
+          .lean(),
+        Advance.find({ employee: id })
+          .sort({ createdAt: -1 })
+          .limit(10)
+          .lean()
+      ]);
+
+      details.salary = salary;
+      details.payslips = payslips;
+      details.bonuses = bonuses;
+      details.advances = advances;
+      details.payrollSummary = {
+        totalEarned: payslips.filter(p => p.status === 'paid').reduce((sum, p) => sum + (p.netSalary || 0), 0),
+        pendingBonuses: bonuses.filter(b => b.status === 'pending').reduce((sum, b) => sum + (b.amount || 0), 0),
+        activeAdvances: advances.filter(a => ['disbursed', 'repaying'].includes(a.status)).reduce((sum, a) => sum + (a.remainingAmount || 0), 0)
+      };
+    }
+
+    // For parents - fetch children details with their info
+    if (user.role === 'parent' && user.parentData?.children?.length > 0) {
+      const childrenIds = user.parentData.children.map(c => c._id || c);
+      const childrenDetails = await Promise.all(
+        childrenIds.map(childId => this.getUserFullDetails(childId, institutionId).catch(() => null))
+      );
+      details.childrenDetails = childrenDetails.filter(Boolean);
+    }
+
+    return details;
   }
 
   async createUser(userData, institutionId, createdBy, creatorRole) {
@@ -153,7 +293,8 @@ class UserService {
     if (role === 'parent' && parentProfile) {
       newUser.parentData = {
         occupation: parentProfile.occupation,
-        relation: parentProfile.relation
+        relation: parentProfile.relation,
+        children: parentProfile.children || []
       };
     }
 
@@ -168,7 +309,25 @@ class UserService {
 
     const user = await User.create(newUser);
 
-    // TODO: Send welcome email with credentials
+    // If parent, update children's studentData.parent reference
+    if (role === 'parent' && parentProfile?.children?.length > 0) {
+      await User.updateMany(
+        { _id: { $in: parentProfile.children }, role: 'student' },
+        { $set: { 'studentData.parent': user._id } }
+      );
+    }
+
+    // Send welcome email with credentials
+    const userName = `${firstName} ${lastName}`;
+    emailService.sendWelcome({
+      to: email,
+      name: userName,
+      email: email,
+      password: userPassword,
+      loginUrl: process.env.FRONTEND_URL + '/login'
+    }).catch(err => {
+      console.error('Failed to send welcome email:', err);
+    });
 
     const userObj = user.toObject();
     delete userObj.password;
@@ -246,6 +405,36 @@ class UserService {
         department: updateData.staffProfile.department || user.staffData?.department,
         designation: updateData.staffProfile.designation || user.staffData?.designation
       };
+    }
+
+    if (updateData.parentProfile) {
+      const oldChildren = user.parentData?.children || [];
+      const newChildren = updateData.parentProfile.children || [];
+      
+      // Update parent data
+      user.parentData = {
+        ...user.parentData,
+        relation: updateData.parentProfile.relation || user.parentData?.relation,
+        children: newChildren
+      };
+
+      // Remove parent reference from students no longer linked
+      const removedChildren = oldChildren.filter(c => !newChildren.includes(c.toString()));
+      if (removedChildren.length > 0) {
+        await User.updateMany(
+          { _id: { $in: removedChildren }, role: 'student' },
+          { $unset: { 'studentData.parent': 1 } }
+        );
+      }
+
+      // Add parent reference to newly linked students
+      const addedChildren = newChildren.filter(c => !oldChildren.map(o => o.toString()).includes(c));
+      if (addedChildren.length > 0) {
+        await User.updateMany(
+          { _id: { $in: addedChildren }, role: 'student' },
+          { $set: { 'studentData.parent': user._id } }
+        );
+      }
     }
 
     if (updateData.isActive !== undefined) {
@@ -420,6 +609,137 @@ class UserService {
       .lean();
 
     return users;
+  }
+
+  /**
+   * Get next admission number for a new student
+   * @param {string} institutionId - Institution ID
+   * @returns {Promise<object>} - Next admission number and format info
+   */
+  async getNextAdmissionNumber(institutionId) {
+    const institution = await Institution.findById(institutionId);
+    if (!institution) {
+      throw ApiError.notFound('Institution not found');
+    }
+
+    // Get settings or use defaults
+    const settings = institution.config?.studentNumbering || {};
+    const format = settings.admissionNumberFormat || '{CODE}{YEAR}';
+    const padding = settings.admissionNumberPadding || 3;
+
+    // Count existing students in this institution
+    const studentCount = await User.countDocuments({
+      institution: institutionId,
+      role: 'student',
+      isActive: true
+    });
+
+    const nextNumber = studentCount + 1;
+    const year = new Date().getFullYear();
+    const paddedNumber = String(nextNumber).padStart(padding, '0');
+
+    // Replace placeholders in format
+    let admissionNumber = format
+      .replace('{CODE}', institution.code)
+      .replace('{YEAR}', year)
+      .replace('{YY}', String(year).slice(-2));
+    
+    // Append the number
+    admissionNumber += paddedNumber;
+
+    return {
+      admissionNumber,
+      format,
+      nextNumber,
+      institutionCode: institution.code
+    };
+  }
+
+  /**
+   * Get next roll number for a class/section
+   * @param {string} institutionId - Institution ID
+   * @param {string} classId - Class ID
+   * @param {string} sectionId - Section ID (optional)
+   * @returns {Promise<object>} - Next roll number
+   */
+  async getNextRollNumber(institutionId, classId, sectionId) {
+    if (!classId) {
+      throw ApiError.badRequest('Class ID is required');
+    }
+
+    const query = {
+      institution: institutionId,
+      role: 'student',
+      isActive: true,
+      'studentData.class': classId
+    };
+
+    // If section is provided, filter by section as well
+    if (sectionId) {
+      query['studentData.section'] = sectionId;
+    }
+
+    const studentCount = await User.countDocuments(query);
+    const nextRollNumber = studentCount + 1;
+
+    return {
+      rollNumber: String(nextRollNumber),
+      currentCount: studentCount,
+      classId,
+      sectionId
+    };
+  }
+
+  /**
+   * Get student numbering settings for an institution
+   * @param {string} institutionId - Institution ID
+   * @returns {Promise<object>} - Numbering settings
+   */
+  async getStudentNumberingSettings(institutionId) {
+    const institution = await Institution.findById(institutionId)
+      .select('code config.studentNumbering');
+    
+    if (!institution) {
+      throw ApiError.notFound('Institution not found');
+    }
+
+    const defaults = {
+      admissionNumberFormat: '{CODE}{YEAR}',
+      admissionNumberPadding: 3,
+      rollNumberAutoGenerate: true
+    };
+
+    return {
+      institutionCode: institution.code,
+      settings: institution.config?.studentNumbering || defaults
+    };
+  }
+
+  /**
+   * Update student numbering settings for an institution
+   * @param {string} institutionId - Institution ID
+   * @param {object} settings - New settings
+   * @returns {Promise<object>} - Updated settings
+   */
+  async updateStudentNumberingSettings(institutionId, settings) {
+    const institution = await Institution.findById(institutionId);
+    
+    if (!institution) {
+      throw ApiError.notFound('Institution not found');
+    }
+
+    if (!institution.config) {
+      institution.config = {};
+    }
+
+    institution.config.studentNumbering = {
+      ...institution.config.studentNumbering,
+      ...settings
+    };
+
+    await institution.save();
+
+    return institution.config.studentNumbering;
   }
 }
 

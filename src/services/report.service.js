@@ -236,35 +236,67 @@ class ReportService {
   async getDashboardSummary(institutionId) {
     const instId = new mongoose.Types.ObjectId(institutionId);
     const now = new Date();
+    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
 
-    const [students, teachers, feeThisMonth, attendanceToday] = await Promise.all([
+    const [students, teachers, staff, parents, feeThisMonth, pendingFees, attendanceToday, recentUsers, todayBirthdays] = await Promise.all([
       User.countDocuments({ institution: instId, role: 'student', isActive: true }),
       User.countDocuments({ institution: instId, role: 'teacher', isActive: true }),
+      User.countDocuments({ institution: instId, role: 'staff', isActive: true }),
+      User.countDocuments({ institution: instId, role: 'parent', isActive: true }),
       FeePayment.aggregate([
-        { $match: { institutionId: instId, status: 'completed', paidAt: { $gte: startOfMonth } } },
+        { $match: { institution: instId, status: 'paid', createdAt: { $gte: startOfMonth } } },
+        { $group: { _id: null, total: { $sum: '$amount' } } }
+      ]),
+      FeePayment.aggregate([
+        { $match: { institution: instId, status: 'pending' } },
         { $group: { _id: null, total: { $sum: '$amount' } } }
       ]),
       Attendance.aggregate([
-        { $match: { institutionId: instId, date: { $gte: new Date(now.setHours(0,0,0,0)) } } },
-        { $unwind: '$records' },
-        { $group: { _id: '$records.status', count: { $sum: 1 } } }
+        { $match: { institution: instId, date: { $gte: today } } },
+        { $group: { _id: '$status', count: { $sum: 1 } } }
+      ]),
+      User.find({ institution: instId, isActive: true })
+        .sort({ createdAt: -1 })
+        .limit(5)
+        .select('profile.firstName profile.lastName role createdAt')
+        .lean(),
+      User.aggregate([
+        { $match: { institution: instId, isActive: true, 'profile.dateOfBirth': { $exists: true } } },
+        { $addFields: { 
+          birthMonth: { $month: '$profile.dateOfBirth' }, 
+          birthDay: { $dayOfMonth: '$profile.dateOfBirth' } 
+        }},
+        { $match: { birthMonth: now.getMonth() + 1, birthDay: now.getDate() } },
+        { $project: { name: { $concat: ['$profile.firstName', ' ', '$profile.lastName'] }, role: 1 } },
+        { $limit: 10 }
       ])
     ]);
 
     const attendanceSummary = attendanceToday.reduce((acc, a) => { acc[a._id] = a.count; return acc; }, {});
     const totalAttendance = Object.values(attendanceSummary).reduce((a, b) => a + b, 0);
 
+    const recentActivity = recentUsers.map(u => ({
+      message: `${u.profile?.firstName || ''} ${u.profile?.lastName || ''} joined as ${u.role}`,
+      time: new Date(u.createdAt).toLocaleDateString()
+    }));
+
     return {
-      students,
-      teachers,
+      totalStudents: students,
+      totalTeachers: teachers,
+      totalStaff: staff,
+      totalParents: parents,
       feeCollectedThisMonth: feeThisMonth[0]?.total || 0,
+      pendingFees: pendingFees[0]?.total || 0,
       todayAttendance: {
         present: attendanceSummary.present || 0,
         absent: attendanceSummary.absent || 0,
         total: totalAttendance,
-        percentage: totalAttendance ? ((attendanceSummary.present || 0) / totalAttendance * 100).toFixed(1) : 0
-      }
+        percentage: totalAttendance ? Math.round((attendanceSummary.present || 0) / totalAttendance * 100) : 0
+      },
+      recentActivity: { activities: recentActivity },
+      todayBirthdays: todayBirthdays,
+      announcements: []
     };
   }
 }

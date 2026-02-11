@@ -35,9 +35,11 @@ const userSchema = new mongoose.Schema({
     firstName: { type: String, required: true, trim: true },
     lastName: { type: String, required: true, trim: true },
     phone: { type: String, trim: true },
-    avatar: { type: String },
+    avatar: { type: String }, // Base64 or URL
+    coverPhoto: { type: String }, // Base64 or URL for profile background
     dateOfBirth: { type: Date },
     gender: { type: String, enum: ['male', 'female', 'other'] },
+    bio: { type: String, maxlength: 500 },
     address: {
       street: String,
       city: String,
@@ -67,7 +69,7 @@ const userSchema = new mongoose.Schema({
   parentData: {
     occupation: String,
     children: [{ type: mongoose.Schema.Types.ObjectId, ref: 'User' }],
-    relation: { type: String, enum: ['father', 'mother', 'guardian'] }
+    relation: { type: String, enum: ['father', 'mother', 'guardian', 'grandfather', 'grandmother', 'uncle', 'aunt', 'sibling', 'other'] }
   },
   staffData: {
     employeeId: String,
@@ -86,6 +88,13 @@ const userSchema = new mongoose.Schema({
   lastLogin: Date,
   loginAttempts: { type: Number, default: 0 },
   lockUntil: Date,
+  // Two-Factor Authentication
+  twoFactorEnabled: { type: Boolean, default: false },
+  // Password Change with OTP
+  passwordChangeOTP: String,
+  passwordChangeOTPExpires: Date,
+  passwordChangeToken: String,
+  passwordChangeTokenExpires: Date,
   // Preferences
   preferences: {
     language: { type: String, default: 'en' },
@@ -112,7 +121,6 @@ userSchema.virtual('fullName').get(function() {
 // Index for faster queries
 userSchema.index({ institution: 1, role: 1 });
 userSchema.index({ 'studentData.class': 1, 'studentData.section': 1 });
-userSchema.index({ email: 1 }, { unique: true });
 
 // Hash password before saving
 userSchema.pre('save', async function(next) {

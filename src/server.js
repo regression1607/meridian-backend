@@ -7,12 +7,16 @@ require('dotenv').config();
 
 const connectDB = require('./config/database');
 const logger = require('./utils/logger');
+const emailService = require('./utils/emailService');
 const { errorHandler, notFound } = require('./middleware/errorMiddleware');
 
 const app = express();
 
 // Connect to Database
 connectDB();
+
+// Initialize Email Service
+emailService.initialize();
 
 // CORS - must be before other middleware
 // Allow all origins for now (can restrict later)

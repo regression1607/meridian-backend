@@ -63,6 +63,18 @@ const payrollController = {
     res.json(ApiResponse.success('Salary fetched successfully', salary));
   }),
 
+  updateEmployeeSalary: asyncHandler(async (req, res) => {
+    const institutionId = getInstitutionId(req);
+    const salary = await payrollService.updateEmployeeSalary(req.params.id, institutionId, req.body);
+    res.json(ApiResponse.success('Employee salary updated successfully', salary));
+  }),
+
+  deleteEmployeeSalary: asyncHandler(async (req, res) => {
+    const institutionId = getInstitutionId(req);
+    await payrollService.deleteEmployeeSalary(req.params.id, institutionId);
+    res.json(ApiResponse.success('Employee salary deleted successfully', null));
+  }),
+
   // ============ PAYSLIP CONTROLLERS ============
   generatePayslip: asyncHandler(async (req, res) => {
     const institutionId = getInstitutionId(req);

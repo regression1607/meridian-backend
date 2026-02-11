@@ -77,6 +77,19 @@ const institutionSchema = new mongoose.Schema({
       currency: { type: String, default: 'INR' },
       lateFeePerDay: { type: Number, default: 0 },
       gracePeriodDays: { type: Number, default: 7 }
+    },
+    studentNumbering: {
+      admissionNumberFormat: { type: String, default: '{CODE}{YEAR}' }, // e.g., MER2026001
+      admissionNumberPadding: { type: Number, default: 3 }, // Number of digits to pad
+      rollNumberAutoGenerate: { type: Boolean, default: true }
+    },
+    employeeNumbering: {
+      teacherPrefix: { type: String, default: 'TCH' },
+      teacherIncludeYear: { type: Boolean, default: true },
+      teacherPadding: { type: Number, default: 3 },
+      staffPrefix: { type: String, default: 'STF' },
+      staffIncludeYear: { type: Boolean, default: true },
+      staffPadding: { type: Number, default: 3 }
     }
   },
   features: {

@@ -1,4 +1,5 @@
 const userService = require('../services/user.service');
+const idGeneratorService = require('../services/idGenerator.service');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiResponse = require('../utils/response');
 
@@ -30,6 +31,16 @@ exports.getUserById = asyncHandler(async (req, res) => {
   const user = await userService.getUserById(req.params.id, institutionId);
   res.json(
     ApiResponse.success('User fetched successfully', user)
+  );
+});
+
+exports.getUserFullDetails = asyncHandler(async (req, res) => {
+  const institutionId = ['super_admin', 'admin'].includes(req.user.role) 
+    ? null 
+    : req.user.institution;
+  const details = await userService.getUserFullDetails(req.params.id, institutionId);
+  res.json(
+    ApiResponse.success('User details fetched successfully', details)
   );
 });
 
@@ -135,5 +146,144 @@ exports.exportUsers = asyncHandler(async (req, res) => {
 
   res.json(
     ApiResponse.success('Users exported successfully', users)
+  );
+});
+
+// Unified ID Generator endpoint - generates IDs for all user types
+exports.generateNextId = asyncHandler(async (req, res) => {
+  const { idType, classId, sectionId } = req.query;
+  
+  const institutionId = ['super_admin', 'admin'].includes(req.user.role)
+    ? req.query.institutionId
+    : req.user.institution;
+
+  if (!institutionId) {
+    return res.status(400).json(
+      ApiResponse.error('Institution ID is required')
+    );
+  }
+
+  if (!idType) {
+    return res.status(400).json(
+      ApiResponse.error('ID type is required (admissionNumber, rollNumber, teacherEmployeeId, staffEmployeeId)')
+    );
+  }
+
+  const result = await idGeneratorService.generateNextId(institutionId, idType, { classId, sectionId });
+  res.json(
+    ApiResponse.success(`Next ${idType} generated`, result)
+  );
+});
+
+// Get ID generation settings for an institution
+exports.getIdSettings = asyncHandler(async (req, res) => {
+  const institutionId = ['super_admin', 'admin'].includes(req.user.role)
+    ? req.query.institutionId
+    : req.user.institution;
+
+  if (!institutionId) {
+    return res.status(400).json(
+      ApiResponse.error('Institution ID is required')
+    );
+  }
+
+  const result = await idGeneratorService.getSettings(institutionId);
+  res.json(
+    ApiResponse.success('ID generation settings fetched', result)
+  );
+});
+
+// Update ID generation settings for an institution
+exports.updateIdSettings = asyncHandler(async (req, res) => {
+  const institutionId = ['super_admin', 'admin'].includes(req.user.role)
+    ? req.body.institutionId
+    : req.user.institution;
+
+  if (!institutionId) {
+    return res.status(400).json(
+      ApiResponse.error('Institution ID is required')
+    );
+  }
+
+  const result = await idGeneratorService.updateSettings(institutionId, req.body);
+  res.json(
+    ApiResponse.success('ID generation settings updated', result)
+  );
+});
+
+// Legacy endpoints for backward compatibility
+exports.getNextAdmissionNumber = asyncHandler(async (req, res) => {
+  const institutionId = ['super_admin', 'admin'].includes(req.user.role)
+    ? req.query.institutionId
+    : req.user.institution;
+
+  if (!institutionId) {
+    return res.status(400).json(
+      ApiResponse.error('Institution ID is required')
+    );
+  }
+
+  const result = await idGeneratorService.generateNextId(institutionId, 'admissionNumber');
+  res.json(
+    ApiResponse.success('Next admission number generated', result)
+  );
+});
+
+exports.getNextRollNumber = asyncHandler(async (req, res) => {
+  const { classId, sectionId } = req.query;
+  
+  const institutionId = ['super_admin', 'admin'].includes(req.user.role)
+    ? req.query.institutionId
+    : req.user.institution;
+
+  if (!institutionId) {
+    return res.status(400).json(
+      ApiResponse.error('Institution ID is required')
+    );
+  }
+
+  if (!classId) {
+    return res.status(400).json(
+      ApiResponse.error('Class ID is required')
+    );
+  }
+
+  const result = await idGeneratorService.generateNextId(institutionId, 'rollNumber', { classId, sectionId });
+  res.json(
+    ApiResponse.success('Next roll number generated', result)
+  );
+});
+
+exports.getStudentNumberingSettings = asyncHandler(async (req, res) => {
+  const institutionId = ['super_admin', 'admin'].includes(req.user.role)
+    ? req.query.institutionId
+    : req.user.institution;
+
+  if (!institutionId) {
+    return res.status(400).json(
+      ApiResponse.error('Institution ID is required')
+    );
+  }
+
+  const result = await idGeneratorService.getSettings(institutionId);
+  res.json(
+    ApiResponse.success('ID generation settings fetched', result)
+  );
+});
+
+exports.updateStudentNumberingSettings = asyncHandler(async (req, res) => {
+  const institutionId = ['super_admin', 'admin'].includes(req.user.role)
+    ? req.body.institutionId
+    : req.user.institution;
+
+  if (!institutionId) {
+    return res.status(400).json(
+      ApiResponse.error('Institution ID is required')
+    );
+  }
+
+  const result = await idGeneratorService.updateSettings(institutionId, { studentNumbering: req.body.settings });
+  res.json(
+    ApiResponse.success('ID generation settings updated', result)
   );
 });

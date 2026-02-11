@@ -37,10 +37,19 @@ const forgotPassword = {
   }),
 };
 
+const verifyOTP = {
+  body: Joi.object().keys({
+    email: Joi.string().required().email().lowercase().trim(),
+    otp: Joi.string().required().length(6).pattern(/^\d{6}$/)
+      .message('OTP must be a 6-digit number'),
+  }),
+};
+
 const resetPassword = {
   body: Joi.object().keys({
-    token: Joi.string().required(),
-    password: Joi.string().required().min(8).max(128)
+    email: Joi.string().required().email().lowercase().trim(),
+    resetToken: Joi.string().required(),
+    newPassword: Joi.string().required().min(8).max(128)
       .pattern(/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]/)
       .message('Password must contain at least one uppercase, one lowercase, one number and one special character'),
   }),
@@ -60,6 +69,7 @@ module.exports = {
   login,
   refreshToken,
   forgotPassword,
+  verifyOTP,
   resetPassword,
   changePassword,
 };

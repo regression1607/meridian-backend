@@ -29,10 +29,12 @@ exports.createNotification = asyncHandler(async (req, res) => {
 });
 
 exports.sendToRole = asyncHandler(async (req, res) => {
-  const { role, ...data } = req.body;
+  const { role, roles, deliveryMethod = 'inapp', ...data } = req.body;
   data.createdBy = req.user._id;
-  const result = await notificationService.sendToRole(data, role, req.user.institution);
-  res.status(201).json({ success: true, count: result.length });
+  // Support both single role and multiple roles
+  const targetRoles = roles || (role ? [role] : []);
+  const result = await notificationService.sendToRoles(data, targetRoles, req.user.institution, deliveryMethod);
+  res.status(201).json({ success: true, count: result.notificationCount || result.length, emailsSent: result.emailsSent || 0 });
 });
 
 exports.sendToClass = asyncHandler(async (req, res) => {

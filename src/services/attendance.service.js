@@ -217,7 +217,7 @@ class AttendanceService {
     if (sectionId) studentQuery['studentData.section'] = sectionId;
 
     const students = await User.find(studentQuery)
-      .select('profile.firstName profile.lastName studentData.rollNumber')
+      .select('profile.firstName profile.lastName email studentData.rollNumber')
       .sort({ 'studentData.rollNumber': 1 })
       .lean();
 
@@ -238,6 +238,7 @@ class AttendanceService {
     const result = students.map(student => ({
       _id: student._id,
       name: `${student.profile.firstName} ${student.profile.lastName}`,
+      email: student.email || '',
       rollNumber: student.studentData?.rollNumber || '-',
       attendance: attendanceMap[student._id.toString()] || null,
       status: attendanceMap[student._id.toString()]?.status || 'unmarked'

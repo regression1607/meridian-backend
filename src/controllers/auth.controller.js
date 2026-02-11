@@ -1,6 +1,7 @@
 const authService = require('../services/auth.service');
 const asyncHandler = require('../utils/asyncHandler');
 const ApiResponse = require('../utils/response');
+const uploadService = require('../utils/uploadService');
 
 exports.register = asyncHandler(async (req, res) => {
   const result = await authService.register(req.body);
@@ -48,15 +49,98 @@ exports.changePassword = asyncHandler(async (req, res) => {
 });
 
 exports.forgotPassword = asyncHandler(async (req, res) => {
-  // TODO: Implement forgot password with email
+  const { email } = req.body;
+  const result = await authService.forgotPassword(email);
   res.json(
-    ApiResponse.success('If an account exists with this email, a reset link has been sent')
+    ApiResponse.success(result.message)
+  );
+});
+
+exports.verifyOTP = asyncHandler(async (req, res) => {
+  const { email, otp } = req.body;
+  const result = await authService.verifyOTP(email, otp);
+  res.json(
+    ApiResponse.success(result.message, { resetToken: result.resetToken })
   );
 });
 
 exports.resetPassword = asyncHandler(async (req, res) => {
-  // TODO: Implement reset password
+  const { email, resetToken, newPassword } = req.body;
+  const result = await authService.resetPassword(email, resetToken, newPassword);
   res.json(
-    ApiResponse.success('Password reset successful')
+    ApiResponse.success(result.message)
+  );
+});
+
+// 2FA Controllers
+exports.enable2FA = asyncHandler(async (req, res) => {
+  const result = await authService.enable2FA(req.user._id);
+  res.json(
+    ApiResponse.success(result.message)
+  );
+});
+
+exports.disable2FA = asyncHandler(async (req, res) => {
+  const result = await authService.disable2FA(req.user._id);
+  res.json(
+    ApiResponse.success(result.message)
+  );
+});
+
+// Password Change with OTP Controllers
+exports.sendPasswordChangeOTP = asyncHandler(async (req, res) => {
+  const result = await authService.sendPasswordChangeOTP(req.user._id);
+  res.json(
+    ApiResponse.success(result.message)
+  );
+});
+
+exports.verifyPasswordChangeOTP = asyncHandler(async (req, res) => {
+  const { otp } = req.body;
+  const result = await authService.verifyPasswordChangeOTP(req.user._id, otp);
+  res.json(
+    ApiResponse.success(result.message, { otpToken: result.otpToken })
+  );
+});
+
+exports.changePasswordWith2FA = asyncHandler(async (req, res) => {
+  const { newPassword, otpToken } = req.body;
+  const result = await authService.changePasswordWith2FA(req.user._id, newPassword, otpToken);
+  res.json(
+    ApiResponse.success(result.message)
+  );
+});
+
+// Profile Update Controllers
+exports.updateProfile = asyncHandler(async (req, res) => {
+  const result = await authService.updateProfile(req.user._id, req.body);
+  res.json(
+    ApiResponse.success('Profile updated successfully', result)
+  );
+});
+
+exports.uploadAvatar = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json(ApiResponse.error('No file uploaded'));
+  }
+  
+  const imageData = await uploadService.processProfileImage(req.file, 'avatar', req.user._id);
+  const result = await authService.updateProfileImage(req.user._id, 'avatar', imageData.data);
+  
+  res.json(
+    ApiResponse.success('Avatar uploaded successfully', result)
+  );
+});
+
+exports.uploadCoverPhoto = asyncHandler(async (req, res) => {
+  if (!req.file) {
+    return res.status(400).json(ApiResponse.error('No file uploaded'));
+  }
+  
+  const imageData = await uploadService.processProfileImage(req.file, 'cover', req.user._id);
+  const result = await authService.updateProfileImage(req.user._id, 'coverPhoto', imageData.data);
+  
+  res.json(
+    ApiResponse.success('Cover photo uploaded successfully', result)
   );
 });

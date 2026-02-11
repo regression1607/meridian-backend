@@ -19,6 +19,8 @@ router.post('/salaries', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), pay
 router.get('/salaries', protect, authorizeMinRole(ROLES.STAFF), payrollController.getEmployeeSalaries);
 router.get('/salaries/me', protect, payrollController.getMyEmployeeSalary);
 router.get('/salaries/:id', protect, authorizeMinRole(ROLES.STAFF), payrollController.getEmployeeSalaryById);
+router.put('/salaries/:id', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.updateEmployeeSalary);
+router.delete('/salaries/:id', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.deleteEmployeeSalary);
 
 // Payslip routes
 router.post('/payslips', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.generatePayslip);

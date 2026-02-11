@@ -127,6 +127,24 @@ const feePaymentSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  duesBreakdown: {
+    feeAmount: { type: Number, default: 0 },
+    transport: {
+      included: { type: Boolean, default: false },
+      amount: { type: Number, default: 0 },
+      description: { type: String }
+    },
+    hostel: {
+      included: { type: Boolean, default: false },
+      amount: { type: Number, default: 0 },
+      description: { type: String }
+    },
+    libraryFines: [{
+      fineId: { type: mongoose.Schema.Types.ObjectId },
+      amount: { type: Number },
+      description: { type: String }
+    }]
+  },
   collectedBy: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'User'
@@ -141,7 +159,19 @@ const feePaymentSchema = new mongoose.Schema({
   },
   academicYear: {
     type: String
-  }
+  },
+  alertCount: {
+    type: Number,
+    default: 0
+  },
+  lastAlertSentAt: {
+    type: Date
+  },
+  alertHistory: [{
+    sentAt: { type: Date, default: Date.now },
+    sentTo: { type: String },
+    sentBy: { type: mongoose.Schema.Types.ObjectId, ref: 'User' }
+  }]
 }, {
   timestamps: true
 });

@@ -27,7 +27,7 @@ exports.getHomework = asyncHandler(async (req, res) => {
   const institutionId = getInstitutionId(req.user, req.query.institution);
   const result = await homeworkService.getHomework(req.query, institutionId);
   res.json(
-    ApiResponse.success('Homework fetched successfully', result.data, result.pagination)
+    ApiResponse.paginated('Homework fetched successfully', result.data, result.pagination)
   );
 });
 

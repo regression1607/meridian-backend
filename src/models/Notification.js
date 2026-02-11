@@ -21,6 +21,7 @@ const notificationSchema = new mongoose.Schema({
       'exam_scheduled',
       'exam_result',
       'attendance_alert',
+      'event',
       'event_reminder',
       'announcement',
       'meeting',
@@ -30,6 +31,7 @@ const notificationSchema = new mongoose.Schema({
       'leave_approved',
       'leave_rejected',
       'admission',
+      'alert',
       'general'
     ],
     default: 'general'

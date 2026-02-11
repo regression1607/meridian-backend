@@ -113,7 +113,17 @@ const updateUser = {
 
 const getUsers = {
   query: Joi.object().keys({
-    role: Joi.string().valid(...Object.values(ROLES)),
+    role: Joi.string().custom((value, helpers) => {
+      // Allow comma-separated roles
+      const roles = value.split(',').map(r => r.trim());
+      const validRoles = Object.values(ROLES);
+      for (const role of roles) {
+        if (!validRoles.includes(role)) {
+          return helpers.error('any.invalid');
+        }
+      }
+      return value;
+    }),
     search: Joi.string().trim(),
     class: Joi.string(),
     section: Joi.string(),

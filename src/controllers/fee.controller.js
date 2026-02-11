@@ -48,3 +48,39 @@ exports.getDefaulters = asyncHandler(async (req, res) => {
   const defaulters = await feeService.getDefaulters(req.user.institution, req.query);
   res.json(ApiResponse.success('Defaulters fetched', defaulters));
 });
+
+exports.sendFeeReminder = asyncHandler(async (req, res) => {
+  const result = await feeService.sendFeeReminder(req.params.paymentId, req.user.institution, req.user._id);
+  res.json(ApiResponse.success('Fee reminder sent successfully', result));
+});
+
+exports.sendBulkFeeReminders = asyncHandler(async (req, res) => {
+  const { paymentIds } = req.body;
+  if (!paymentIds || !Array.isArray(paymentIds) || paymentIds.length === 0) {
+    return res.status(400).json(ApiResponse.error('Payment IDs required'));
+  }
+  const results = await feeService.sendBulkFeeReminders(paymentIds, req.user.institution, req.user._id);
+  const successCount = results.filter(r => r.success).length;
+  res.json(ApiResponse.success(`Reminders sent: ${successCount}/${paymentIds.length}`, results));
+});
+
+exports.updatePaymentStatus = asyncHandler(async (req, res) => {
+  const { status } = req.body;
+  const payment = await feeService.updatePaymentStatus(req.params.paymentId, status, req.user.institution);
+  res.json(ApiResponse.success('Payment status updated', payment));
+});
+
+exports.generateMonthlyFees = asyncHandler(async (req, res) => {
+  const { month, year } = req.body;
+  if (!month || !year) {
+    return res.status(400).json(ApiResponse.error('Month and year are required'));
+  }
+  const result = await feeService.generateMonthlyFees(req.user.institution, parseInt(month), parseInt(year));
+  res.json(ApiResponse.success(result.message, result));
+});
+
+// Get all pending dues for a student (transport, library fines, hostel)
+exports.getStudentDues = asyncHandler(async (req, res) => {
+  const dues = await feeService.getStudentDues(req.params.studentId, req.user.institution);
+  res.json(ApiResponse.success('Student dues fetched', dues));
+});

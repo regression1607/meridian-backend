@@ -19,16 +19,16 @@ const protect = async (req, res, next) => {
       const decoded = jwt.verify(token, process.env.JWT_SECRET);
       
       // Debug: Log JWT token data on each request
-      console.log('\n🔐 [JWT DEBUG]', {
-        endpoint: `${req.method} ${req.originalUrl}`,
-        tokenData: {
-          userId: decoded.id,
-          role: decoded.role,
-          institutionId: decoded.institution || 'N/A (Platform Admin)',
-          issuedAt: new Date(decoded.iat * 1000).toISOString(),
-          expiresAt: new Date(decoded.exp * 1000).toISOString()
-        }
-      });
+      // console.log('\n🔐 [JWT DEBUG]', {
+      //   endpoint: `${req.method} ${req.originalUrl}`,
+      //   tokenData: {
+      //     userId: decoded.id,
+      //     role: decoded.role,
+      //     institutionId: decoded.institution || 'N/A (Platform Admin)',
+      //     issuedAt: new Date(decoded.iat * 1000).toISOString(),
+      //     expiresAt: new Date(decoded.exp * 1000).toISOString()
+      //   }
+      // });
       
       const user = await User.findById(decoded.id)
         .select('-password')
@@ -43,12 +43,12 @@ const protect = async (req, res, next) => {
       }
 
       // Debug: Log user data from DB
-      console.log('👤 [USER DEBUG]', {
-        email: user.email,
-        role: user.role,
-        institutionId: user.institution?._id || 'N/A (Platform Admin)',
-        institutionName: user.institution?.name || 'N/A'
-      });
+      // console.log('👤 [USER DEBUG]', {
+      //   email: user.email,
+      //   role: user.role,
+      //   institutionId: user.institution?._id || 'N/A (Platform Admin)',
+      //   institutionName: user.institution?.name || 'N/A'
+      // });
 
       req.user = user;
       next();
