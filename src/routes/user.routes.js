@@ -3,7 +3,7 @@ const router = express.Router();
 const userController = require('../controllers/user.controller');
 const validate = require('../middleware/validate');
 const userValidator = require('../validators/user.validator');
-const { protect, authorize, authorizeMinRole } = require('../middleware/authMiddleware');
+const { protect, authorize, checkPermission } = require('../middleware/authMiddleware');
 const { ROLES } = require('../config/constants');
 
 // All routes require authentication
@@ -14,77 +14,77 @@ router.get('/me', userController.updateProfile);
 router.put('/me', userController.updateProfile);
 
 // Get users by role
-router.get('/role/:role', authorizeMinRole('teacher'), userController.getUsersByRole);
+router.get('/role/:role', checkPermission('user_management', 'view'), userController.getUsersByRole);
 
 // Bulk import/export routes
 router.post('/bulk-import',
-  authorize(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.INSTITUTION_ADMIN),
+  checkPermission('user_management', 'manage'),
   userController.bulkImportUsers
 );
 
 router.get('/export',
-  authorize(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.INSTITUTION_ADMIN),
+  checkPermission('user_management', 'manage'),
   userController.exportUsers
 );
 
 // Unified ID generation routes
 router.get('/id-generator/next',
-  authorize(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.INSTITUTION_ADMIN),
+  checkPermission('user_management', 'manage'),
   userController.generateNextId
 );
 
 router.get('/id-generator/settings',
-  authorize(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.INSTITUTION_ADMIN),
+  checkPermission('user_management', 'manage'),
   userController.getIdSettings
 );
 
 router.put('/id-generator/settings',
-  authorize(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.INSTITUTION_ADMIN),
+  checkPermission('user_management', 'manage'),
   userController.updateIdSettings
 );
 
 // Legacy student numbering routes (for backward compatibility)
 router.get('/student-numbering/next-admission',
-  authorize(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.INSTITUTION_ADMIN),
+  checkPermission('user_management', 'manage'),
   userController.getNextAdmissionNumber
 );
 
 router.get('/student-numbering/next-roll',
-  authorize(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.INSTITUTION_ADMIN),
+  checkPermission('user_management', 'manage'),
   userController.getNextRollNumber
 );
 
 router.get('/student-numbering/settings',
-  authorize(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.INSTITUTION_ADMIN),
+  checkPermission('user_management', 'manage'),
   userController.getStudentNumberingSettings
 );
 
 router.put('/student-numbering/settings',
-  authorize(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.INSTITUTION_ADMIN),
+  checkPermission('user_management', 'manage'),
   userController.updateStudentNumberingSettings
 );
 
 // Admin routes - super_admin, admin, and institution_admin can manage users
 router.route('/')
-  .get(authorizeMinRole('teacher'), validate(userValidator.getUsers), userController.getUsers)
+  .get(checkPermission('user_management', 'view'), validate(userValidator.getUsers), userController.getUsers)
   .post(
-    authorize(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.INSTITUTION_ADMIN),
+    checkPermission('user_management', 'create'),
     validate(userValidator.createUser),
     userController.createUser
   );
 
 // Get comprehensive user details (all transactions, fees, exams, etc.)
-router.get('/:id/details', authorizeMinRole('teacher'), userController.getUserFullDetails);
+router.get('/:id/details', checkPermission('user_management', 'view'), userController.getUserFullDetails);
 
 router.route('/:id')
-  .get(authorizeMinRole('teacher'), userController.getUserById)
+  .get(checkPermission('user_management', 'view'), userController.getUserById)
   .put(
-    authorize(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.INSTITUTION_ADMIN),
+    checkPermission('user_management', 'edit'),
     validate(userValidator.updateUser),
     userController.updateUser
   )
   .delete(
-    authorize(ROLES.SUPER_ADMIN, ROLES.ADMIN, ROLES.INSTITUTION_ADMIN),
+    checkPermission('user_management', 'delete'),
     userController.deleteUser
   );
 

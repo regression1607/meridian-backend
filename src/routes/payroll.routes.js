@@ -1,45 +1,44 @@
 const express = require('express');
 const router = express.Router();
 const payrollController = require('../controllers/payroll.controller');
-const { protect, authorizeMinRole } = require('../middleware/authMiddleware');
-const { ROLES } = require('../config/constants');
+const { protect, checkPermission } = require('../middleware/authMiddleware');
 
 // Stats
-router.get('/stats', protect, authorizeMinRole(ROLES.STAFF), payrollController.getStats);
+router.get('/stats', protect, checkPermission('payroll', 'view'), payrollController.getStats);
 
 // Salary Structure routes
-router.post('/structures', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.createSalaryStructure);
-router.get('/structures', protect, authorizeMinRole(ROLES.STAFF), payrollController.getSalaryStructures);
-router.get('/structures/:id', protect, authorizeMinRole(ROLES.STAFF), payrollController.getSalaryStructureById);
-router.put('/structures/:id', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.updateSalaryStructure);
-router.delete('/structures/:id', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.deleteSalaryStructure);
+router.post('/structures', protect, checkPermission('payroll', 'create'), payrollController.createSalaryStructure);
+router.get('/structures', protect, checkPermission('payroll', 'view'), payrollController.getSalaryStructures);
+router.get('/structures/:id', protect, checkPermission('payroll', 'view'), payrollController.getSalaryStructureById);
+router.put('/structures/:id', protect, checkPermission('payroll', 'edit'), payrollController.updateSalaryStructure);
+router.delete('/structures/:id', protect, checkPermission('payroll', 'delete'), payrollController.deleteSalaryStructure);
 
 // Employee Salary routes
-router.post('/salaries', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.assignEmployeeSalary);
-router.get('/salaries', protect, authorizeMinRole(ROLES.STAFF), payrollController.getEmployeeSalaries);
+router.post('/salaries', protect, checkPermission('payroll', 'create'), payrollController.assignEmployeeSalary);
+router.get('/salaries', protect, checkPermission('payroll', 'view'), payrollController.getEmployeeSalaries);
 router.get('/salaries/me', protect, payrollController.getMyEmployeeSalary);
-router.get('/salaries/:id', protect, authorizeMinRole(ROLES.STAFF), payrollController.getEmployeeSalaryById);
-router.put('/salaries/:id', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.updateEmployeeSalary);
-router.delete('/salaries/:id', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.deleteEmployeeSalary);
+router.get('/salaries/:id', protect, checkPermission('payroll', 'view'), payrollController.getEmployeeSalaryById);
+router.put('/salaries/:id', protect, checkPermission('payroll', 'edit'), payrollController.updateEmployeeSalary);
+router.delete('/salaries/:id', protect, checkPermission('payroll', 'delete'), payrollController.deleteEmployeeSalary);
 
 // Payslip routes
-router.post('/payslips', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.generatePayslip);
-router.post('/payslips/bulk', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.bulkGeneratePayslips);
-router.get('/payslips', protect, authorizeMinRole(ROLES.STAFF), payrollController.getPayslips);
+router.post('/payslips', protect, checkPermission('payroll', 'create'), payrollController.generatePayslip);
+router.post('/payslips/bulk', protect, checkPermission('payroll', 'manage'), payrollController.bulkGeneratePayslips);
+router.get('/payslips', protect, checkPermission('payroll', 'view'), payrollController.getPayslips);
 router.get('/payslips/me', protect, payrollController.getMyPayslips);
 router.get('/payslips/:id', protect, payrollController.getPayslipById);
-router.put('/payslips/:id/approve', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.approvePayslip);
-router.put('/payslips/:id/pay', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.markPayslipPaid);
+router.put('/payslips/:id/approve', protect, checkPermission('payroll', 'manage'), payrollController.approvePayslip);
+router.put('/payslips/:id/pay', protect, checkPermission('payroll', 'manage'), payrollController.markPayslipPaid);
 
 // Bonus routes
-router.post('/bonuses', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.createBonus);
-router.get('/bonuses', protect, authorizeMinRole(ROLES.STAFF), payrollController.getBonuses);
-router.put('/bonuses/:id/approve', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.approveBonus);
+router.post('/bonuses', protect, checkPermission('payroll', 'create'), payrollController.createBonus);
+router.get('/bonuses', protect, checkPermission('payroll', 'view'), payrollController.getBonuses);
+router.put('/bonuses/:id/approve', protect, checkPermission('payroll', 'manage'), payrollController.approveBonus);
 
 // Advance/Loan routes
 router.post('/advances', protect, payrollController.createAdvance);
-router.get('/advances', protect, authorizeMinRole(ROLES.STAFF), payrollController.getAdvances);
-router.put('/advances/:id/approve', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.approveAdvance);
-router.put('/advances/:id/disburse', protect, authorizeMinRole(ROLES.INSTITUTION_ADMIN), payrollController.disburseAdvance);
+router.get('/advances', protect, checkPermission('payroll', 'view'), payrollController.getAdvances);
+router.put('/advances/:id/approve', protect, checkPermission('payroll', 'manage'), payrollController.approveAdvance);
+router.put('/advances/:id/disburse', protect, checkPermission('payroll', 'manage'), payrollController.disburseAdvance);
 
 module.exports = router;

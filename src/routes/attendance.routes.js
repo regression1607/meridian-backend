@@ -1,31 +1,31 @@
 const express = require('express');
 const router = express.Router();
 const attendanceController = require('../controllers/attendance.controller');
-const { protect, authorize, authorizeMinRole } = require('../middleware/authMiddleware');
+const { protect, authorize, authorizeMinRole, checkPermission } = require('../middleware/authMiddleware');
 const { ROLES } = require('../config/constants');
 
 // All routes require authentication
 router.use(protect);
 
 // Get my attendance (for students/teachers)
-router.get('/me', attendanceController.getMyAttendance);
+router.get('/me', checkPermission('attendance', 'view'), attendanceController.getMyAttendance);
 
 // Get attendance stats
-router.get('/stats', authorizeMinRole('teacher'), attendanceController.getAttendanceStats);
+router.get('/stats', checkPermission('attendance', 'view'), attendanceController.getAttendanceStats);
 
 // Get class attendance for marking
-router.get('/class/:classId', authorizeMinRole('teacher'), attendanceController.getClassAttendance);
+router.get('/class/:classId', checkPermission('attendance', 'view'), attendanceController.getClassAttendance);
 
 // Get user's attendance report
-router.get('/user/:userId', authorizeMinRole('teacher'), attendanceController.getUserAttendance);
+router.get('/user/:userId', checkPermission('attendance', 'view'), attendanceController.getUserAttendance);
 
 // Mark single attendance
-router.post('/', authorizeMinRole('teacher'), attendanceController.markAttendance);
+router.post('/', checkPermission('attendance', 'create'), attendanceController.markAttendance);
 
 // Mark bulk attendance
-router.post('/bulk', authorizeMinRole('teacher'), attendanceController.markBulkAttendance);
+router.post('/bulk', checkPermission('attendance', 'create'), attendanceController.markBulkAttendance);
 
 // Get attendance records
-router.get('/', authorizeMinRole('teacher'), attendanceController.getAttendance);
+router.get('/', checkPermission('attendance', 'view'), attendanceController.getAttendance);
 
 module.exports = router;

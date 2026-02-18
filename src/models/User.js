@@ -23,6 +23,10 @@ const userSchema = new mongoose.Schema({
     enum: Object.values(ROLES),
     required: true
   },
+  customRole: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Role'
+  },
   institution: {
     type: mongoose.Schema.Types.ObjectId,
     ref: 'Institution',

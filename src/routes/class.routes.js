@@ -1,8 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const classController = require('../controllers/class.controller');
-const { protect, authorize } = require('../middleware/authMiddleware');
-const { ROLES } = require('../config/constants');
+const { protect, checkPermission } = require('../middleware/authMiddleware');
 
 // Public route - Get classes for admission form
 router.get('/public/:institutionId', classController.getPublicClasses);
@@ -12,23 +11,23 @@ router.use(protect);
 
 // Class routes
 router.route('/')
-  .get(classController.getClasses)
-  .post(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), classController.createClass);
+  .get(checkPermission('academics', 'view'), classController.getClasses)
+  .post(checkPermission('academics', 'create'), classController.createClass);
 
 router.route('/:id')
-  .get(classController.getClassById)
-  .put(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), classController.updateClass)
-  .delete(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), classController.deleteClass);
+  .get(checkPermission('academics', 'view'), classController.getClassById)
+  .put(checkPermission('academics', 'edit'), classController.updateClass)
+  .delete(checkPermission('academics', 'delete'), classController.deleteClass);
 
-router.get('/:id/students', classController.getClassStudents);
+router.get('/:id/students', checkPermission('academics', 'view'), classController.getClassStudents);
 
 // Section routes
 router.route('/:classId/sections')
-  .get(classController.getSections)
-  .post(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), classController.createSection);
+  .get(checkPermission('academics', 'view'), classController.getSections)
+  .post(checkPermission('academics', 'create'), classController.createSection);
 
 router.route('/sections/:sectionId')
-  .put(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), classController.updateSection)
-  .delete(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), classController.deleteSection);
+  .put(checkPermission('academics', 'edit'), classController.updateSection)
+  .delete(checkPermission('academics', 'delete'), classController.deleteSection);
 
 module.exports = router;

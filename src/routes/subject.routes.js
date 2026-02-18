@@ -1,27 +1,26 @@
 const express = require('express');
 const router = express.Router();
 const subjectController = require('../controllers/subject.controller');
-const { protect, authorize } = require('../middleware/authMiddleware');
-const { ROLES } = require('../config/constants');
+const { protect, checkPermission } = require('../middleware/authMiddleware');
 
 router.use(protect);
 
 router.route('/')
-  .get(subjectController.getSubjects)
-  .post(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), subjectController.createSubject);
+  .get(checkPermission('academics', 'view'), subjectController.getSubjects)
+  .post(checkPermission('academics', 'create'), subjectController.createSubject);
 
 router.route('/:id')
-  .get(subjectController.getSubjectById)
-  .put(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), subjectController.updateSubject)
-  .delete(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), subjectController.deleteSubject);
+  .get(checkPermission('academics', 'view'), subjectController.getSubjectById)
+  .put(checkPermission('academics', 'edit'), subjectController.updateSubject)
+  .delete(checkPermission('academics', 'delete'), subjectController.deleteSubject);
 
 router.put('/:id/classes', 
-  authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), 
+  checkPermission('academics', 'edit'), 
   subjectController.assignToClasses
 );
 
 router.put('/:id/teachers', 
-  authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), 
+  checkPermission('academics', 'edit'), 
   subjectController.assignTeachers
 );
 
