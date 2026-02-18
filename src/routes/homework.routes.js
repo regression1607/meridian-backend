@@ -10,10 +10,12 @@ router.use(protect);
 router.get('/my-homework', homeworkController.getStudentHomework);
 router.post('/:id/submit', homeworkController.submitHomework);
 
-// Teacher/Admin routes
-router.get('/stats', authorizeMinRole('teacher'), homeworkController.getHomeworkStats);
-router.get('/', authorizeMinRole('teacher'), homeworkController.getHomework);
+// Routes accessible to all authenticated users (students can view homework list)
+router.get('/stats', homeworkController.getHomeworkStats);
+router.get('/', homeworkController.getHomework);
 router.get('/:id', homeworkController.getHomeworkById);
+
+// Teacher/Admin only routes
 router.post('/', authorizeMinRole('teacher'), homeworkController.createHomework);
 router.put('/:id', authorizeMinRole('teacher'), homeworkController.updateHomework);
 router.delete('/:id', authorizeMinRole('teacher'), homeworkController.deleteHomework);

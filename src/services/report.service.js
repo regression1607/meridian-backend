@@ -1,5 +1,6 @@
 const User = require('../models/User');
-const { Class, Section } = require('../models/Class');
+const Class = require('../models/Class');
+const Section = require('../models/Section');
 const Attendance = require('../models/Attendance');
 const { FeePayment } = require('../models/Fee');
 const { Book, BookIssue } = require('../models/Library');
@@ -73,25 +74,23 @@ class ReportService {
     if (startDate) dateFilter.$gte = new Date(startDate);
     if (endDate) dateFilter.$lte = new Date(endDate);
 
-    const match = { institutionId: instId };
+    const match = { institution: instId };
     if (Object.keys(dateFilter).length) match.date = dateFilter;
     if (classId) match.class = new mongoose.Types.ObjectId(classId);
-    if (type) match.type = type;
+    if (type) match.userType = type;
 
     const [summary, daily] = await Promise.all([
       Attendance.aggregate([
         { $match: match },
-        { $unwind: '$records' },
         { $group: {
-          _id: '$records.status',
+          _id: '$status',
           count: { $sum: 1 }
         }}
       ]),
       Attendance.aggregate([
         { $match: match },
-        { $unwind: '$records' },
         { $group: {
-          _id: { date: '$date', status: '$records.status' },
+          _id: { date: '$date', status: '$status' },
           count: { $sum: 1 }
         }},
         { $sort: { '_id.date': 1 } }
@@ -114,34 +113,34 @@ class ReportService {
     const instId = new mongoose.Types.ObjectId(institutionId);
     const { startDate, endDate, academicYear } = query;
 
-    const match = { institutionId: instId };
+    const match = { institution: instId };
     if (academicYear) match.academicYear = academicYear;
     if (startDate || endDate) {
-      match.paidAt = {};
-      if (startDate) match.paidAt.$gte = new Date(startDate);
-      if (endDate) match.paidAt.$lte = new Date(endDate);
+      match.paidDate = {};
+      if (startDate) match.paidDate.$gte = new Date(startDate);
+      if (endDate) match.paidDate.$lte = new Date(endDate);
     }
 
     const [totalCollected, byMonth, byPaymentMode, pending] = await Promise.all([
       FeePayment.aggregate([
-        { $match: { ...match, status: 'completed' } },
-        { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
+        { $match: { ...match, status: { $in: ['completed', 'paid'] } } },
+        { $group: { _id: null, total: { $sum: '$paidAmount' }, count: { $sum: 1 } } }
       ]),
       FeePayment.aggregate([
-        { $match: { ...match, status: 'completed' } },
+        { $match: { ...match, status: { $in: ['completed', 'paid'] } } },
         { $group: {
-          _id: { year: { $year: '$paidAt' }, month: { $month: '$paidAt' } },
-          total: { $sum: '$amount' },
+          _id: { year: { $year: { $ifNull: ['$paidDate', '$createdAt'] } }, month: { $month: { $ifNull: ['$paidDate', '$createdAt'] } } },
+          total: { $sum: '$paidAmount' },
           count: { $sum: 1 }
         }},
         { $sort: { '_id.year': 1, '_id.month': 1 } }
       ]),
       FeePayment.aggregate([
-        { $match: { ...match, status: 'completed' } },
-        { $group: { _id: '$paymentMode', total: { $sum: '$amount' }, count: { $sum: 1 } } }
+        { $match: { ...match, status: { $in: ['completed', 'paid'] } } },
+        { $group: { _id: '$paymentMethod', total: { $sum: '$paidAmount' }, count: { $sum: 1 } } }
       ]),
       FeePayment.aggregate([
-        { $match: { institutionId: instId, status: 'pending' } },
+        { $match: { institution: instId, status: 'pending' } },
         { $group: { _id: null, total: { $sum: '$amount' }, count: { $sum: 1 } } }
       ])
     ]);
@@ -168,15 +167,15 @@ class ReportService {
     const instId = new mongoose.Types.ObjectId(institutionId);
 
     const [totalBooks, totalCopies, issued, overdue, popular] = await Promise.all([
-      Book.countDocuments({ institutionId: instId }),
+      Book.countDocuments({ institution: instId }),
       Book.aggregate([
-        { $match: { institutionId: instId } },
+        { $match: { institution: instId } },
         { $group: { _id: null, total: { $sum: '$totalCopies' }, available: { $sum: '$availableCopies' } } }
       ]),
-      BookIssue.countDocuments({ institutionId: instId, status: 'issued' }),
-      BookIssue.countDocuments({ institutionId: instId, status: 'issued', dueDate: { $lt: new Date() } }),
+      BookIssue.countDocuments({ institution: instId, status: 'issued' }),
+      BookIssue.countDocuments({ institution: instId, status: 'issued', dueDate: { $lt: new Date() } }),
       BookIssue.aggregate([
-        { $match: { institutionId: instId } },
+        { $match: { institution: instId } },
         { $group: { _id: '$book', count: { $sum: 1 } } },
         { $sort: { count: -1 } },
         { $limit: 10 },
@@ -232,6 +231,55 @@ class ReportService {
     };
   }
 
+  // Teacher Classes Report
+  async getTeacherClassesReport(institutionId, teacherId) {
+    const instId = new mongoose.Types.ObjectId(institutionId);
+    const teacherObjId = new mongoose.Types.ObjectId(teacherId);
+
+    // Get classes where teacher is class teacher OR has subjects assigned
+    // First get subjects where this teacher is assigned
+    const Subject = require('../models/Subject');
+    const teacherSubjects = await Subject.find({ 
+      institution: instId, 
+      teachers: teacherObjId 
+    }).select('_id').lean();
+    const subjectIds = teacherSubjects.map(s => s._id);
+
+    // Get classes where teacher is classTeacher OR class has teacher's subjects
+    const classes = await Class.find({ 
+      institution: instId,
+      $or: [
+        { classTeacher: teacherObjId },
+        { subjects: { $in: subjectIds } }
+      ]
+    }).populate('sections').populate('subjects').lean();
+
+    // Get student counts for each class
+    const classIds = classes.map(c => c._id);
+    const studentCounts = await User.aggregate([
+      { $match: { institution: instId, role: 'student', isActive: true, 'studentData.class': { $in: classIds } } },
+      { $group: { _id: '$studentData.class', count: { $sum: 1 } } }
+    ]);
+
+    const countMap = studentCounts.reduce((acc, s) => { acc[s._id.toString()] = s.count; return acc; }, {});
+
+    const classesWithCount = classes.map(c => ({
+      ...c,
+      studentCount: countMap[c._id.toString()] || 0,
+      subjectCount: c.subjects?.length || 0
+    }));
+
+    const totalStudents = classesWithCount.reduce((sum, c) => sum + c.studentCount, 0);
+
+    return {
+      classes: classesWithCount,
+      totalClasses: classes.length,
+      totalStudents,
+      classesToday: Math.min(classes.length, 5), // placeholder
+      subjects: classes.reduce((sum, c) => sum + (c.subjects?.length || 0), 0)
+    };
+  }
+
   // Dashboard Summary
   async getDashboardSummary(institutionId) {
     const instId = new mongoose.Types.ObjectId(institutionId);
@@ -245,8 +293,8 @@ class ReportService {
       User.countDocuments({ institution: instId, role: 'staff', isActive: true }),
       User.countDocuments({ institution: instId, role: 'parent', isActive: true }),
       FeePayment.aggregate([
-        { $match: { institution: instId, status: 'paid', createdAt: { $gte: startOfMonth } } },
-        { $group: { _id: null, total: { $sum: '$amount' } } }
+        { $match: { institution: instId, status: { $in: ['paid', 'completed'] }, createdAt: { $gte: startOfMonth } } },
+        { $group: { _id: null, total: { $sum: '$paidAmount' } } }
       ]),
       FeePayment.aggregate([
         { $match: { institution: instId, status: 'pending' } },
@@ -282,6 +330,10 @@ class ReportService {
     }));
 
     return {
+      students: students,
+      teachers: teachers,
+      staff: staff,
+      parents: parents,
       totalStudents: students,
       totalTeachers: teachers,
       totalStaff: staff,

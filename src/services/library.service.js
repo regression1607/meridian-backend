@@ -1,4 +1,4 @@
-const { Book, BookIssue, LibrarySettings } = require('../models/Library');
+const { Book, BookIssue, LibrarySettings, BookRequest } = require('../models/Library');
 const ApiError = require('../utils/apiError');
 
 class LibraryService {
@@ -422,6 +422,121 @@ class LibraryService {
         return acc;
       }, {})
     };
+  }
+
+  // ============ BOOK REQUEST METHODS ============
+  async createBookRequest(institutionId, bookId, userId, reason) {
+    // Check if book exists and has available copies
+    const book = await Book.findOne({ _id: bookId, institution: institutionId, isDeleted: false });
+    if (!book) {
+      throw new ApiError(404, 'Book not found');
+    }
+    if (book.availableCopies <= 0) {
+      throw new ApiError(400, 'No copies available for this book');
+    }
+
+    // Check for existing pending request
+    const existingRequest = await BookRequest.findOne({
+      institution: institutionId,
+      book: bookId,
+      requestedBy: userId,
+      status: 'pending',
+      isDeleted: false
+    });
+    if (existingRequest) {
+      throw new ApiError(400, 'You already have a pending request for this book');
+    }
+
+    const request = new BookRequest({
+      institution: institutionId,
+      book: bookId,
+      requestedBy: userId,
+      reason
+    });
+
+    await request.save();
+    return request.populate(['book', 'requestedBy']);
+  }
+
+  async getMyBookRequests(institutionId, userId) {
+    return BookRequest.find({
+      institution: institutionId,
+      requestedBy: userId,
+      isDeleted: false
+    })
+      .populate('book', 'title author bookCode availableCopies')
+      .sort({ createdAt: -1 });
+  }
+
+  async getBookRequests(institutionId, filters = {}) {
+    const { status, page = 1, limit = 20 } = filters;
+    
+    const query = { institution: institutionId, isDeleted: false };
+    if (status) query.status = status;
+
+    const skip = (page - 1) * limit;
+
+    const [requests, total] = await Promise.all([
+      BookRequest.find(query)
+        .populate('book', 'title author bookCode')
+        .populate('requestedBy', 'profile.firstName profile.lastName email')
+        .populate('processedBy', 'profile.firstName profile.lastName')
+        .sort({ createdAt: -1 })
+        .skip(skip)
+        .limit(parseInt(limit)),
+      BookRequest.countDocuments(query)
+    ]);
+
+    return {
+      requests,
+      pagination: {
+        page: parseInt(page),
+        limit: parseInt(limit),
+        total,
+        totalPages: Math.ceil(total / limit)
+      }
+    };
+  }
+
+  async approveBookRequest(requestId, institutionId, userId) {
+    const request = await BookRequest.findOne({
+      _id: requestId,
+      institution: institutionId,
+      status: 'pending',
+      isDeleted: false
+    });
+
+    if (!request) {
+      throw new ApiError(404, 'Request not found or already processed');
+    }
+
+    request.status = 'approved';
+    request.processedBy = userId;
+    request.processedAt = new Date();
+    await request.save();
+
+    return request.populate(['book', 'requestedBy', 'processedBy']);
+  }
+
+  async rejectBookRequest(requestId, institutionId, userId, reason) {
+    const request = await BookRequest.findOne({
+      _id: requestId,
+      institution: institutionId,
+      status: 'pending',
+      isDeleted: false
+    });
+
+    if (!request) {
+      throw new ApiError(404, 'Request not found or already processed');
+    }
+
+    request.status = 'rejected';
+    request.processedBy = userId;
+    request.processedAt = new Date();
+    request.rejectionReason = reason;
+    await request.save();
+
+    return request.populate(['book', 'requestedBy', 'processedBy']);
   }
 }
 

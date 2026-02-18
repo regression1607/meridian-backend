@@ -88,6 +88,39 @@ const libraryController = {
     const institutionId = getInstitutionId(req);
     const stats = await libraryService.getLibraryStats(institutionId);
     res.json(ApiResponse.success('Library stats fetched successfully', stats));
+  }),
+
+  // ============ BOOK REQUEST CONTROLLERS ============
+  createBookRequest: asyncHandler(async (req, res) => {
+    const institutionId = getInstitutionId(req);
+    const { bookId, reason } = req.body;
+    const request = await libraryService.createBookRequest(institutionId, bookId, req.user._id, reason);
+    res.status(201).json(ApiResponse.success('Book request submitted successfully', request));
+  }),
+
+  getMyBookRequests: asyncHandler(async (req, res) => {
+    const institutionId = getInstitutionId(req);
+    const requests = await libraryService.getMyBookRequests(institutionId, req.user._id);
+    res.json(ApiResponse.success('Your book requests fetched successfully', requests));
+  }),
+
+  getBookRequests: asyncHandler(async (req, res) => {
+    const institutionId = getInstitutionId(req);
+    const result = await libraryService.getBookRequests(institutionId, req.query);
+    res.json(ApiResponse.paginated('Book requests fetched successfully', result.requests, result.pagination));
+  }),
+
+  approveBookRequest: asyncHandler(async (req, res) => {
+    const institutionId = getInstitutionId(req);
+    const request = await libraryService.approveBookRequest(req.params.id, institutionId, req.user._id);
+    res.json(ApiResponse.success('Book request approved', request));
+  }),
+
+  rejectBookRequest: asyncHandler(async (req, res) => {
+    const institutionId = getInstitutionId(req);
+    const { reason } = req.body;
+    const request = await libraryService.rejectBookRequest(req.params.id, institutionId, req.user._id, reason);
+    res.json(ApiResponse.success('Book request rejected', request));
   })
 };
 

@@ -13,22 +13,22 @@ router.use(protect);
 // Class routes
 router.route('/')
   .get(classController.getClasses)
-  .post(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN), classController.createClass);
+  .post(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), classController.createClass);
 
 router.route('/:id')
   .get(classController.getClassById)
-  .put(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN), classController.updateClass)
-  .delete(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN), classController.deleteClass);
+  .put(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), classController.updateClass)
+  .delete(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), classController.deleteClass);
 
 router.get('/:id/students', classController.getClassStudents);
 
 // Section routes
 router.route('/:classId/sections')
   .get(classController.getSections)
-  .post(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN), classController.createSection);
+  .post(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), classController.createSection);
 
 router.route('/sections/:sectionId')
-  .put(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN), classController.updateSection)
-  .delete(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN), classController.deleteSection);
+  .put(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), classController.updateSection)
+  .delete(authorize(ROLES.SUPER_ADMIN, ROLES.INSTITUTION_ADMIN, ROLES.TEACHER), classController.deleteSection);
 
 module.exports = router;

@@ -178,14 +178,55 @@ const librarySettingsSchema = new mongoose.Schema({
   }
 }, { timestamps: true });
 
+// Book Request Schema (for students to request books)
+const bookRequestSchema = new mongoose.Schema({
+  institution: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Institution',
+    required: true
+  },
+  book: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'Book',
+    required: true
+  },
+  requestedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User',
+    required: true
+  },
+  reason: {
+    type: String,
+    trim: true
+  },
+  status: {
+    type: String,
+    enum: ['pending', 'approved', 'rejected', 'issued', 'cancelled'],
+    default: 'pending'
+  },
+  processedBy: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'User'
+  },
+  processedAt: Date,
+  rejectionReason: String,
+  isDeleted: {
+    type: Boolean,
+    default: false
+  }
+}, { timestamps: true });
+
 // Indexes
 bookSchema.index({ institution: 1, bookCode: 1 }, { unique: true });
 bookSchema.index({ institution: 1, title: 'text', author: 'text' });
 bookIssueSchema.index({ institution: 1, issuedTo: 1, status: 1 });
 bookIssueSchema.index({ institution: 1, book: 1, status: 1 });
+bookRequestSchema.index({ institution: 1, requestedBy: 1, status: 1 });
+bookRequestSchema.index({ institution: 1, book: 1, status: 1 });
 
 const Book = mongoose.model('Book', bookSchema);
 const BookIssue = mongoose.model('BookIssue', bookIssueSchema);
 const LibrarySettings = mongoose.model('LibrarySettings', librarySettingsSchema);
+const BookRequest = mongoose.model('BookRequest', bookRequestSchema);
 
-module.exports = { Book, BookIssue, LibrarySettings };
+module.exports = { Book, BookIssue, LibrarySettings, BookRequest };

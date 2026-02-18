@@ -20,11 +20,17 @@ const createUser = {
       country: Joi.string().trim().default('India'),
     }),
     teacherProfile: Joi.object().keys({
-      employeeId: Joi.string().trim(),
-      department: Joi.string(),
-      subjects: Joi.array().items(Joi.string()),
-      qualifications: Joi.array().items(Joi.string()),
-      joiningDate: Joi.date(),
+      employeeId: Joi.string().trim().allow('', null),
+      department: Joi.string().allow('', null),
+      subjects: Joi.alternatives().try(
+        Joi.array().items(Joi.string()),
+        Joi.string().allow('', null)
+      ),
+      qualifications: Joi.alternatives().try(
+        Joi.array().items(Joi.string()),
+        Joi.string().allow('', null)
+      ),
+      joiningDate: Joi.date().allow(null),
     }),
     studentProfile: Joi.object().keys({
       admissionNumber: Joi.string().trim(),
@@ -85,8 +91,14 @@ const updateUser = {
     teacherProfile: Joi.object().keys({
       employeeId: Joi.string().trim().allow('', null),
       department: Joi.string().allow('', null),
-      subjects: Joi.array().items(Joi.string()),
-      qualifications: Joi.string().allow('', null),
+      subjects: Joi.alternatives().try(
+        Joi.array().items(Joi.string()),
+        Joi.string().allow('', null)
+      ),
+      qualifications: Joi.alternatives().try(
+        Joi.array().items(Joi.string()),
+        Joi.string().allow('', null)
+      ),
       joiningDate: Joi.date().allow(null),
     }),
     studentProfile: Joi.object().keys({

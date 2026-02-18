@@ -1,18 +1,66 @@
 const UserPreferences = require('../models/UserPreferences');
 const ApiError = require('../utils/apiError');
 
-const DEFAULT_WIDGETS = [
-  { id: 'stats-overview', type: 'stats', title: 'Quick Stats', size: 'full', position: 0, visible: true },
-  { id: 'attendance-today', type: 'attendance', title: "Today's Attendance", size: 'medium', position: 1, visible: true },
-  { id: 'fee-collection', type: 'fees', title: 'Fee Collection', size: 'medium', position: 2, visible: true },
-  { id: 'upcoming-events', type: 'events', title: 'Upcoming Events', size: 'medium', position: 3, visible: true },
-  { id: 'recent-activities', type: 'activities', title: 'Recent Activities', size: 'medium', position: 4, visible: true },
-  { id: 'calendar-widget', type: 'calendar', title: 'Calendar', size: 'medium', position: 5, visible: true },
-  { id: 'announcements', type: 'announcements', title: 'Announcements', size: 'large', position: 6, visible: true }
-];
+// Role-specific default widgets
+const getDefaultWidgetsForRole = (role) => {
+  const defaults = {
+    super_admin: [
+      { id: 'stats-overview', type: 'stats', title: 'Quick Stats', size: 'full', position: 0, visible: true },
+      { id: 'attendance-today', type: 'attendance', title: "Today's Attendance", size: 'medium', position: 1, visible: true },
+      { id: 'fee-collection', type: 'fees', title: 'Fee Collection', size: 'medium', position: 2, visible: true },
+      { id: 'upcoming-events', type: 'events', title: 'Upcoming Events', size: 'medium', position: 3, visible: true },
+      { id: 'recent-activities', type: 'activities', title: 'Recent Activities', size: 'medium', position: 4, visible: true }
+    ],
+    admin: [
+      { id: 'stats-overview', type: 'stats', title: 'Quick Stats', size: 'full', position: 0, visible: true },
+      { id: 'attendance-today', type: 'attendance', title: "Today's Attendance", size: 'medium', position: 1, visible: true },
+      { id: 'fee-collection', type: 'fees', title: 'Fee Collection', size: 'medium', position: 2, visible: true },
+      { id: 'upcoming-events', type: 'events', title: 'Upcoming Events', size: 'medium', position: 3, visible: true },
+      { id: 'recent-activities', type: 'activities', title: 'Recent Activities', size: 'medium', position: 4, visible: true }
+    ],
+    institution_admin: [
+      { id: 'stats-overview', type: 'stats', title: 'Quick Stats', size: 'full', position: 0, visible: true },
+      { id: 'attendance-today', type: 'attendance', title: "Today's Attendance", size: 'medium', position: 1, visible: true },
+      { id: 'fee-collection', type: 'fees', title: 'Fee Collection', size: 'medium', position: 2, visible: true },
+      { id: 'upcoming-events', type: 'events', title: 'Upcoming Events', size: 'medium', position: 3, visible: true },
+      { id: 'recent-activities', type: 'activities', title: 'Recent Activities', size: 'medium', position: 4, visible: true }
+    ],
+    teacher: [
+      { id: 'my-classes', type: 'teacherClasses', title: 'My Classes', size: 'large', position: 0, visible: true },
+      { id: 'attendance-today', type: 'attendance', title: "Today's Attendance", size: 'medium', position: 1, visible: true },
+      { id: 'homework-pending', type: 'homework', title: 'Homework Status', size: 'medium', position: 2, visible: true },
+      { id: 'upcoming-events', type: 'events', title: 'Upcoming Events', size: 'medium', position: 3, visible: true },
+      { id: 'exam-schedule', type: 'exams', title: 'Upcoming Exams', size: 'medium', position: 4, visible: true }
+    ],
+    student: [
+      { id: 'attendance-today', type: 'attendance', title: 'My Attendance', size: 'medium', position: 0, visible: true },
+      { id: 'homework-pending', type: 'homework', title: 'My Homework', size: 'medium', position: 1, visible: true },
+      { id: 'exam-schedule', type: 'exams', title: 'Upcoming Exams', size: 'medium', position: 2, visible: true },
+      { id: 'upcoming-events', type: 'events', title: 'Upcoming Events', size: 'medium', position: 3, visible: true },
+      { id: 'performance-chart', type: 'performance', title: 'My Performance', size: 'large', position: 4, visible: true }
+    ],
+    parent: [
+      { id: 'attendance-today', type: 'attendance', title: "Child's Attendance", size: 'medium', position: 0, visible: true },
+      { id: 'fee-collection', type: 'fees', title: 'Fee Status', size: 'medium', position: 1, visible: true },
+      { id: 'upcoming-events', type: 'events', title: 'School Events', size: 'medium', position: 2, visible: true },
+      { id: 'performance-chart', type: 'performance', title: "Child's Performance", size: 'large', position: 3, visible: true }
+    ],
+    staff: [
+      { id: 'stats-overview', type: 'stats', title: 'Quick Stats', size: 'large', position: 0, visible: true },
+      { id: 'upcoming-events', type: 'events', title: 'Upcoming Events', size: 'medium', position: 1, visible: true },
+      { id: 'recent-activities', type: 'activities', title: 'Recent Activities', size: 'medium', position: 2, visible: true }
+    ]
+  };
+  
+  return defaults[role] || [
+    { id: 'upcoming-events', type: 'events', title: 'Upcoming Events', size: 'medium', position: 0, visible: true },
+    { id: 'recent-activities', type: 'activities', title: 'Recent Activities', size: 'medium', position: 1, visible: true }
+  ];
+};
 
 const AVAILABLE_WIDGETS = [
   { id: 'stats-overview', type: 'stats', title: 'Quick Stats', description: 'Overview of key metrics', icon: 'BarChart3' },
+  { id: 'my-classes', type: 'teacherClasses', title: 'My Classes', description: 'Classes you teach', icon: 'GraduationCap' },
   { id: 'attendance-today', type: 'attendance', title: "Today's Attendance", description: 'Current attendance status', icon: 'Users' },
   { id: 'fee-collection', type: 'fees', title: 'Fee Collection', description: 'Fee collection summary', icon: 'DollarSign' },
   { id: 'upcoming-events', type: 'events', title: 'Upcoming Events', description: 'Next scheduled events', icon: 'Calendar' },
@@ -22,7 +70,7 @@ const AVAILABLE_WIDGETS = [
   { id: 'student-birthdays', type: 'birthdays', title: 'Birthdays Today', description: 'Student birthdays', icon: 'Cake' },
   { id: 'library-stats', type: 'library', title: 'Library Stats', description: 'Library overview', icon: 'BookOpen' },
   { id: 'transport-status', type: 'transport', title: 'Transport Status', description: 'Vehicle status', icon: 'Bus' },
-  { id: 'homework-pending', type: 'homework', title: 'Pending Homework', description: 'Homework submissions', icon: 'FileText' },
+  { id: 'homework-pending', type: 'homework', title: 'Homework Status', description: 'Homework submissions', icon: 'FileText' },
   { id: 'exam-schedule', type: 'exams', title: 'Exam Schedule', description: 'Upcoming exams', icon: 'ClipboardList' },
   { id: 'payroll-summary', type: 'payroll', title: 'Payroll Summary', description: 'Staff payroll status', icon: 'Wallet' },
   { id: 'hostel-occupancy', type: 'hostel', title: 'Hostel Occupancy', description: 'Room occupancy status', icon: 'Building' },
@@ -31,22 +79,22 @@ const AVAILABLE_WIDGETS = [
 ];
 
 class PreferencesService {
-  async getPreferences(userId, institutionId) {
+  async getPreferences(userId, institutionId, role = 'admin') {
     let preferences = await UserPreferences.findOne({ user: userId });
     
     if (!preferences) {
-      preferences = await this.createDefaultPreferences(userId, institutionId);
+      preferences = await this.createDefaultPreferences(userId, institutionId, role);
     }
     
     return preferences;
   }
 
-  async createDefaultPreferences(userId, institutionId) {
+  async createDefaultPreferences(userId, institutionId, role = 'admin') {
     const preferences = new UserPreferences({
       user: userId,
       institutionId,
       dashboard: {
-        widgets: DEFAULT_WIDGETS,
+        widgets: getDefaultWidgetsForRole(role),
         layout: 'grid',
         theme: 'light'
       }
@@ -64,9 +112,12 @@ class PreferencesService {
     return preferences;
   }
 
-  async addWidget(userId, widgetData) {
-    const preferences = await UserPreferences.findOne({ user: userId });
-    if (!preferences) throw new ApiError(404, 'Preferences not found');
+  async addWidget(userId, widgetData, institutionId = null, role = 'admin') {
+    let preferences = await UserPreferences.findOne({ user: userId });
+    if (!preferences) {
+      // Create preferences with role-specific defaults first
+      preferences = await this.createDefaultPreferences(userId, institutionId, role);
+    }
 
     const existingWidget = preferences.dashboard.widgets.find(w => w.id === widgetData.id);
     if (existingWidget) {
@@ -127,12 +178,13 @@ class PreferencesService {
     return preferences;
   }
 
-  async resetToDefault(userId, institutionId) {
+  async resetToDefault(userId, institutionId, role = 'admin') {
+    const defaultWidgets = getDefaultWidgetsForRole(role);
     const preferences = await UserPreferences.findOneAndUpdate(
       { user: userId },
       { 
         $set: { 
-          'dashboard.widgets': DEFAULT_WIDGETS,
+          'dashboard.widgets': defaultWidgets,
           'dashboard.layout': 'grid'
         } 
       },

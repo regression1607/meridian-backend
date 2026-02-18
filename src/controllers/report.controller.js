@@ -47,6 +47,13 @@ const reportController = {
     const institutionId = getInstitutionId(req);
     const summary = await reportService.getDashboardSummary(institutionId);
     res.json(ApiResponse.success('Dashboard summary fetched', summary));
+  }),
+
+  getTeacherClasses: asyncHandler(async (req, res) => {
+    const institutionId = getInstitutionId(req);
+    const teacherId = req.user._id;
+    const report = await reportService.getTeacherClassesReport(institutionId, teacherId);
+    res.json(ApiResponse.success('Teacher classes report fetched', report));
   })
 };
 

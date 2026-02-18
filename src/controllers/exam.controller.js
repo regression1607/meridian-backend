@@ -45,7 +45,12 @@ exports.deleteExam = asyncHandler(async (req, res) => {
 // Result Controllers
 exports.getResults = asyncHandler(async (req, res) => {
   const institutionId = getInstitutionId(req.user, req.query.institution);
-  const result = await examService.getResults(institutionId, req.query);
+  // If student is logged in, only show their own results
+  const query = { ...req.query };
+  if (req.user.role === 'student') {
+    query.student = req.user._id;
+  }
+  const result = await examService.getResults(institutionId, query);
   res.json(ApiResponse.paginated('Results fetched successfully', result.data, result.meta));
 });
 
@@ -94,7 +99,12 @@ exports.verifyResults = asyncHandler(async (req, res) => {
 // Report Card Controllers
 exports.getReportCards = asyncHandler(async (req, res) => {
   const institutionId = getInstitutionId(req.user, req.query.institution);
-  const result = await examService.getReportCards(institutionId, req.query);
+  // If student is logged in, only show their own report cards
+  const query = { ...req.query };
+  if (req.user.role === 'student') {
+    query.student = req.user._id;
+  }
+  const result = await examService.getReportCards(institutionId, query);
   res.json(ApiResponse.paginated('Report cards fetched successfully', result.data, result.meta));
 });
 

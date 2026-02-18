@@ -4,7 +4,7 @@ const ApiResponse = require('../utils/response');
 
 const preferencesController = {
   getPreferences: asyncHandler(async (req, res) => {
-    const preferences = await preferencesService.getPreferences(req.user._id, req.user.institution);
+    const preferences = await preferencesService.getPreferences(req.user._id, req.user.institution, req.user.role);
     res.json(ApiResponse.success('Preferences fetched', preferences));
   }),
 
@@ -15,7 +15,7 @@ const preferencesController = {
   }),
 
   addWidget: asyncHandler(async (req, res) => {
-    const preferences = await preferencesService.addWidget(req.user._id, req.body);
+    const preferences = await preferencesService.addWidget(req.user._id, req.body, req.user.institution, req.user.role);
     res.json(ApiResponse.success('Widget added', preferences));
   }),
 
@@ -38,7 +38,7 @@ const preferencesController = {
   }),
 
   resetToDefault: asyncHandler(async (req, res) => {
-    const preferences = await preferencesService.resetToDefault(req.user._id, req.user.institution);
+    const preferences = await preferencesService.resetToDefault(req.user._id, req.user.institution, req.user.role);
     res.json(ApiResponse.success('Dashboard reset to default', preferences));
   }),
 

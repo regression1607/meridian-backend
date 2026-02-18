@@ -25,4 +25,11 @@ router.put('/issues/:id/return', protect, authorizeMinRole(ROLES.STAFF), library
 router.put('/issues/:id/renew', protect, libraryController.renewBook);
 router.put('/issues/:id/lost', protect, authorizeMinRole(ROLES.STAFF), libraryController.markAsLost);
 
+// Book request routes (for students)
+router.post('/requests', protect, libraryController.createBookRequest);
+router.get('/requests/me', protect, libraryController.getMyBookRequests);
+router.get('/requests', protect, authorizeMinRole(ROLES.STAFF), libraryController.getBookRequests);
+router.put('/requests/:id/approve', protect, authorizeMinRole(ROLES.STAFF), libraryController.approveBookRequest);
+router.put('/requests/:id/reject', protect, authorizeMinRole(ROLES.STAFF), libraryController.rejectBookRequest);
+
 module.exports = router;

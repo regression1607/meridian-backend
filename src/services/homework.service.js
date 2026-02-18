@@ -65,7 +65,7 @@ class HomeworkService {
       .populate('class', 'name')
       .populate('section', 'name')
       .populate('assignedBy', 'profile.firstName profile.lastName email')
-      .populate('submissions.student', 'profile.firstName profile.lastName studentData.rollNumber')
+      .populate('submissions.student', 'profile.firstName profile.lastName email studentData.rollNumber studentData.admissionNumber')
       .populate('submissions.gradedBy', 'profile.firstName profile.lastName');
 
     if (!homework) {
