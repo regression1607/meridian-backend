@@ -28,15 +28,28 @@ class UploadService {
 
   /**
    * Initialize upload directories
+   * Note: Skipped in serverless environments (Vercel) where filesystem is read-only
+   * Files are stored as Base64 in MongoDB, so local directories are not required
    */
   initializeDirectories() {
-    Object.values(UPLOAD_DESTINATIONS).forEach(dest => {
-      const dirPath = getUploadPath(dest);
-      if (!fs.existsSync(dirPath)) {
-        fs.mkdirSync(dirPath, { recursive: true });
-        logger.info(`Created upload directory: ${dirPath}`);
-      }
-    });
+    // Skip directory creation in serverless environments (Vercel has read-only filesystem)
+    if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+      logger.info('Serverless environment detected - skipping local directory creation');
+      return;
+    }
+
+    try {
+      Object.values(UPLOAD_DESTINATIONS).forEach(dest => {
+        const dirPath = getUploadPath(dest);
+        if (!fs.existsSync(dirPath)) {
+          fs.mkdirSync(dirPath, { recursive: true });
+          logger.info(`Created upload directory: ${dirPath}`);
+        }
+      });
+    } catch (error) {
+      // Gracefully handle read-only filesystem errors
+      logger.warn('Could not create upload directories (read-only filesystem):', error.message);
+    }
   }
 
   /**
@@ -213,9 +226,16 @@ class UploadService {
 
   /**
    * Clean up old temporary files (call periodically)
+   * Note: Not applicable in serverless environments where files are stored in MongoDB
    * @param {number} maxAgeHours - Maximum age in hours
    */
   async cleanupTempFiles(maxAgeHours = 24) {
+    // Skip in serverless environments (no local filesystem)
+    if (process.env.VERCEL || process.env.AWS_LAMBDA_FUNCTION_NAME) {
+      logger.info('Serverless environment - no local temp files to clean');
+      return 0;
+    }
+
     const tempDir = getUploadPath(UPLOAD_DESTINATIONS.TEMP);
     const maxAge = maxAgeHours * 60 * 60 * 1000;
 
