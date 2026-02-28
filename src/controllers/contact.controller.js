@@ -27,6 +27,16 @@ const submitContactForm = async (req, res) => {
       });
     }
 
+    // Check if email service is configured
+    const smtpConfigured = process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS;
+    if (!smtpConfigured) {
+      logger.error('SMTP not configured. Missing env vars.');
+      return res.status(500).json({
+        success: false,
+        message: 'Email service not configured. Please contact us directly at ekanshrajput1607@gmail.com'
+      });
+    }
+
     // Send contact form email
     const result = await emailService.sendContactForm({
       name,
@@ -47,14 +57,14 @@ const submitContactForm = async (req, res) => {
       logger.error(`Failed to send contact form email: ${result.message}`);
       return res.status(500).json({
         success: false,
-        message: 'Failed to send message. Please try again later or email us directly.'
+        message: `Failed to send message: ${result.message}. Please email us directly at ekanshrajput1607@gmail.com`
       });
     }
   } catch (error) {
     logger.error('Contact form error:', error);
     return res.status(500).json({
       success: false,
-      message: 'An error occurred. Please try again later.'
+      message: `Error: ${error.message}. Please email us directly at ekanshrajput1607@gmail.com`
     });
   }
 };
