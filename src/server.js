@@ -118,6 +118,7 @@ app.use(`${apiPrefix}/ai`, require('./routes/ai.routes'));
 app.use(`${apiPrefix}/examinations`, require('./routes/exam.routes'));
 app.use(`${apiPrefix}/notifications`, require('./routes/notification.routes'));
 app.use(`${apiPrefix}/question-papers`, require('./routes/questionPaper.routes'));
+app.use(`${apiPrefix}/contact`, require('./routes/contact.routes'));
 
 // Error Handling
 app.use(notFound);

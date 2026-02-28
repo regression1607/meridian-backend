@@ -257,6 +257,72 @@ class EmailService {
     return this.sendEmail({ to, subject, html });
   }
 
+  async sendContactForm({ name, email, phone, institution, subject, message }) {
+    const adminEmail = process.env.CONTACT_FORM_EMAIL || process.env.SMTP_USER;
+    const subjectLine = `New Contact Form: ${subject} - from ${name}`;
+    
+    const html = `
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <meta charset="utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>New Contact Form Submission</title>
+      </head>
+      <body style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; padding: 0; background-color: #f4f7fa;">
+        <div style="max-width: 600px; margin: 0 auto; padding: 40px 20px;">
+          <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); padding: 30px; border-radius: 16px 16px 0 0; text-align: center;">
+            <h1 style="color: white; margin: 0; font-size: 28px;">📬 New Contact Form Submission</h1>
+          </div>
+          <div style="background: white; padding: 40px 30px; border-radius: 0 0 16px 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.1);">
+            <div style="background: #f8f9fa; padding: 20px; border-radius: 12px; margin-bottom: 25px;">
+              <h3 style="color: #333; margin: 0 0 15px 0; font-size: 18px;">Contact Details</h3>
+              <table style="width: 100%; border-collapse: collapse;">
+                <tr>
+                  <td style="padding: 8px 0; color: #666; width: 120px;"><strong>Name:</strong></td>
+                  <td style="padding: 8px 0; color: #333;">${name}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;"><strong>Email:</strong></td>
+                  <td style="padding: 8px 0; color: #333;"><a href="mailto:${email}" style="color: #667eea;">${email}</a></td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;"><strong>Phone:</strong></td>
+                  <td style="padding: 8px 0; color: #333;">${phone || 'Not provided'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;"><strong>Institution:</strong></td>
+                  <td style="padding: 8px 0; color: #333;">${institution || 'Not provided'}</td>
+                </tr>
+                <tr>
+                  <td style="padding: 8px 0; color: #666;"><strong>Subject:</strong></td>
+                  <td style="padding: 8px 0; color: #333;">${subject}</td>
+                </tr>
+              </table>
+            </div>
+            <div style="background: #e8f4f8; padding: 20px; border-radius: 12px; border-left: 4px solid #667eea;">
+              <h3 style="color: #333; margin: 0 0 10px 0; font-size: 16px;">Message:</h3>
+              <p style="color: #555; margin: 0; line-height: 1.6; white-space: pre-wrap;">${message}</p>
+            </div>
+            <hr style="border: none; border-top: 1px solid #eee; margin: 30px 0;">
+            <div style="text-align: center;">
+              <a href="mailto:${email}?subject=Re: ${subject}" style="display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 12px 30px; font-size: 14px; font-weight: bold; text-decoration: none; border-radius: 8px;">Reply to ${name}</a>
+            </div>
+            <p style="color: #999; font-size: 12px; text-align: center; margin-top: 20px;">
+              Received on ${new Date().toLocaleString('en-IN', { timeZone: 'Asia/Kolkata' })} IST
+            </p>
+          </div>
+          <p style="color: #999; font-size: 11px; text-align: center; margin-top: 20px;">
+            © ${new Date().getFullYear()} Meridian EMS. Contact Form Notification.
+          </p>
+        </div>
+      </body>
+      </html>
+    `;
+
+    return this.sendEmail({ to: adminEmail, subject: subjectLine, html });
+  }
+
   async verifyConnection() {
     if (!this.initialized) {
       this.initialize();
